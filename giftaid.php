@@ -29,6 +29,86 @@ function giftaid_civicrm_xmlMenu(&$files) {
  */
 function giftaid_civicrm_install() {
   _giftaid_civix_civicrm_install();
+
+  /**
+   * Helper function for creating data structures.
+   *
+   * @param string $entity - name of the API entity.
+   * @param Array $params_min parameters to use for search.
+   * @param Array $params_extra these plus $params_min are used if a create call
+   *              is needed.
+   */
+  $api_get_or_create = function ($entity, $params_min, $params_extra) {
+    $params_min += ['sequential' => 1];
+    $result = civicrm_api3($entity, 'get', $params_min);
+    if (!$result['count']) {
+      // Couldn't find it, create it now.
+      $result = civicrm_api3($entity, 'create', $params_extra + $params_min);
+    }
+    return $result['values'][0];
+  };
+
+  // We need a Gift Aid declaration activity type
+  $activity_type = $api_get_or_create('OptionValue', [
+    'option_group_id' => "activity_type",
+    'name' => "ar_giftaid_declaration",
+  ],
+  [ 'label' => 'Gift Aid Declaration']);
+
+  // Ensure we have the custom field group we need for contributions.
+  $contribution_custom_group = $api_get_or_create('CustomGroup', [
+    'name' => "ar_giftaid_contribution",
+    'extends' => "Contribution",
+  ],
+  ['title' => 'Gift Aid Details']);
+
+  // Add our 'Eligibility' field.
+  // ...This is a drop-down select field, first we need to check the option
+  //    group exists, and its values.
+  $status_opts_group = $api_get_or_create('OptionGroup',
+    ['name' => 'ar_giftaid_contribution_eligibility_opts'],
+    ['title' => 'Eligibility', 'is_active' => 1]);
+  $weight = 0;
+  foreach ([
+    "unknown"    => "Unknown",
+    "ineligible" => "NOT eligible for Gift Aid",
+    "unclaimed"  => "Eligible but not yet claimed",
+    "claimed"    => "Eligible and has been claimed",
+  ] as $name => $label) {
+    $api_get_or_create('OptionValue',
+      [ 'option_group_id' => "ar_giftaid_contribution_eligibility_opts", 'name' => $name, ],
+      [ 'label' => $label, 'value' => $name, 'weight' => $weight++ ]);
+  }
+
+  // ... Now we can add the Eligibility field to the custom group for contributions.
+  $eligibility = $api_get_or_create('CustomField', [
+    'name' => "ar_giftaid_contribution_status",
+    'custom_group_id' => $contribution_custom_group['id'],
+    'data_type' => "String",
+    'html_type' => "Select",
+    'is_required' => "1",
+    'is_searchable' => "1",
+    'default_value' => "unknown",
+    'text_length' => "30",
+    'option_group_id' => $status_opts_group['id'],
+  ],
+  ['label' => 'Eligibility']);
+
+  // ... Now add a field to group the claims.
+  $eligibility = $api_get_or_create('CustomField', [
+    'name' => "ar_giftaid_contribution_claimcode",
+    'custom_group_id' => $contribution_custom_group['id'],
+  ],
+  [
+    'label' => 'Claim Code',
+    'data_type' => "String",
+    'html_type' => "Text",
+    'is_required' => "0",
+    'is_searchable' => "1",
+    'default_value' => "",
+    'text_length' => "30",
+  ]);
+
 }
 
 /**
@@ -153,3 +233,7 @@ function giftaid_civicrm_navigationMenu(&$menu) {
   ));
   _giftaid_civix_navigationMenu($menu);
 } // */
+
+
+// My helpers.
+
