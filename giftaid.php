@@ -204,6 +204,20 @@ function giftaid_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
   _giftaid_civix_civicrm_alterSettingsFolders($metaDataFolders);
 }
 
+
+/**
+ * Implements https://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_searchTasks
+ */
+function giftaid_civicrm_searchTasks($object_name, &$tasks) {
+  if ($object_name == 'contribution') {
+    // Add our task.
+    $tasks []= [
+      'title'  => ts( 'Update Gift Aid status to CLAIMED' ),
+      'class'  => 'CRM_Giftaid_Form_Task_GiftAidClaim',
+      'result' => FALSE,
+    ];
+  }
+}
 /**
  * Functions below this ship commented out. Uncomment as required.
  *
