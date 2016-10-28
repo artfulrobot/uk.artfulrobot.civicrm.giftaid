@@ -8,18 +8,17 @@ require_once 'CRM/Contribute/Form/Task.php';
  *
  * @see http://wiki.civicrm.org/confluence/display/CRMDOC43/QuickForm+Reference
  */
-class CRM_Giftaid_Form_Task_GiftAidClaim extends CRM_Contribute_Form_Task {
+class CRM_Giftaid_Form_Task_SetEligibility extends CRM_Contribute_Form_Task {
   /**
    * build all the data structures needed to build the form
    *
    * @return void
    * @access public
    */
-  function preProcess() 
-  {
+  function preProcess() {
       //check for update permission
       if ( !CRM_Core_Permission::checkActionPermission( 'CiviContribute', CRM_Core_Action::UPDATE ) ) {
-          CRM_Core_Error::fatal( ts( 'You do not have permission to access this page' ) );  
+          CRM_Core_Error::fatal( ts( 'You do not have permission to access this page' ) );
       }
       parent::preProcess();
   }
@@ -78,16 +77,41 @@ class CRM_Giftaid_Form_Task_GiftAidClaim extends CRM_Contribute_Form_Task {
       return;
     }
 
-    $table_name = civicrm_api3('CustomGroup', 'getvalue', ['return' => "table_name", 'name' => "ar_giftaid_contribution"]);
-    $col_claim_code = civicrm_api3('CustomField', 'getvalue', ['return' => "column_name", 'name' => "ar_giftaid_contribution_claimcode"]);
-    $col_claim_status = civicrm_api3('CustomField', 'getvalue', ['return' => "column_name", 'name' => "ar_giftaid_contribution_status"]);
-    $sql = "UPDATE $table_name
-            SET $col_claim_code = %1, $col_claim_status = 'claimed'
-            WHERE entity_id IN( $list )
-              AND $col_claim_status = 'unclaimed'";
-    $params = array( 1 => array( $this->_next_claim_id, 'Integer' ));
-    CRM_Core_DAO::executeQuery( $sql, $params, true, null, true );
+    // Find unique contacts, and the last declaration from them.
 
+    $target_type = (int) civicrm_api3('OptionValue', 'getvalue',
+      ['return' => "value", 'option_group_id' => "activity_contacts", 'name' => "Activity Targets"]);
+    $table_eligibility = civicrm_api3('CustomGroup', 'getvalue',
+      ['return' => "table_name", 'name' => "ar_giftaid_contribution"]);
+    $col_claim_status = civicrm_api3('CustomField', 'getvalue',
+      ['return' => "column_name", 'name' => "ar_giftaid_contribution_status"]);
+    $declaration_id = (int) civicrm_api3('OptionValue', 'getvalue',
+      ['return' => "value", 'option_group_id' => "activity_type", 'name' => "ar_giftaid_declaration"]);
+
+    // These unknown eligibility contributions are eligible, unclaimed.
+    $sql = "UPDATE $table_eligibility el
+        INNER JOIN civicrm_contribution co ON el.entity_id = co.id
+        INNER JOIN civicrm_contact c ON co.contact_id = c.id AND c.is_deleted = 0 AND c.is_deceased = 0
+        INNER JOIN civicrm_activity_contact ac ON c.id = ac.contact_id AND record_type_id = $target_type
+        INNER JOIN civicrm_activity a ON ac.activity_id = a.id AND a.activity_type_id = $declaration_id AND a.subject = 'Eligible' AND a.is_deleted = 0
+        LEFT JOIN civicrm_activity_contact ac2 ON c.id = ac2.contact_id AND record_type_id = $target_type
+        LEFT JOIN civicrm_activity a2 ON ac2.activity_id = a2.id AND a2.activity_type_id = $declaration_id AND a.is_deleted = 0 AND a2.activity_date_time > a.activity_date_time AND a2.id != a.id
+      WHERE co.id IN ($list) AND a2.id IS NULL AND el.$col_claim_status = 'unknown'
+      SET el.$col_claim_status = 'unclaimed'";
+    CRM_Core_DAO::executeQuery( $sql, [], true, null, true );
+
+    // These unknown eligibility contributions are not eligible.
+    $sql = "UPDATE $table_eligibility el
+        INNER JOIN civicrm_contribution co ON el.entity_id = co.id
+        INNER JOIN civicrm_contact c ON co.contact_id = c.id AND c.is_deleted = 0 AND c.is_deceased = 0
+        INNER JOIN civicrm_activity_contact ac ON c.id = ac.contact_id AND record_type_id = $target_type
+        INNER JOIN civicrm_activity a ON ac.activity_id = a.id AND a.activity_type_id = $declaration_id AND a.subject = 'Ineligible' AND a.is_deleted = 0
+        LEFT JOIN civicrm_activity_contact ac2 ON c.id = ac2.contact_id AND record_type_id = $target_type
+        LEFT JOIN civicrm_activity a2 ON ac2.activity_id = a2.id AND a2.activity_type_id = $declaration_id AND a.is_deleted = 0 AND a2.activity_date_time > a.activity_date_time AND a2.id != a.id
+      WHERE co.id IN ($list) AND a2.id IS NULL AND el.$col_claim_status = 'unknown'
+      SET el.$col_claim_status = 'ineligible'";
+    CRM_Core_DAO::executeQuery( $sql, [], true, null, true );
+    /*
     // count changes
     $sql = "SELECT COUNT(*) FROM $table_name WHERE $col_claim_code = %1";
     $successes = (int) CRM_Core_DAO::singleValueQuery($sql, $params);
@@ -101,6 +125,7 @@ class CRM_Giftaid_Form_Task_GiftAidClaim extends CRM_Contribute_Form_Task {
             . " selected). Nb. Contributions are only updated if their Gift Aid status was 'Eligible but unclaimed'";
     }
     CRM_Core_Session::setStatus($status);
+     */
 
     parent::postProcess();
   }
