@@ -78,34 +78,25 @@ class CRM_Giftaid {
     }
 
     // Find unique contacts, and the last declaration from them.
-
     // These unknown eligibility contributions are eligible, unclaimed.
     $sql = "UPDATE $this->table_eligibility el
         INNER JOIN civicrm_contribution co ON el.entity_id = co.id
         INNER JOIN civicrm_contact c ON co.contact_id = c.id AND c.is_deleted = 0 AND c.is_deceased = 0
+
         INNER JOIN civicrm_activity_contact ac ON c.id = ac.contact_id AND ac.record_type_id = $this->activity_target_type
-        INNER JOIN civicrm_activity a ON ac.activity_id = a.id AND a.activity_type_id = $this->activity_type_declaration AND a.subject = 'Eligible' AND a.is_deleted = 0
-        LEFT JOIN civicrm_activity_contact ac2 ON c.id = ac2.contact_id AND ac2.record_type_id = $this->activity_target_type
-        LEFT JOIN civicrm_activity a2 ON ac2.activity_id = a2.id AND a2.activity_type_id = $this->activity_type_declaration AND a.is_deleted = 0 AND a2.activity_date_time > a.activity_date_time AND a2.id != a.id
-      SET el.$this->col_claim_status = 'unclaimed'
-      WHERE co.id IN ($list) AND a2.id IS NULL AND el.$this->col_claim_status = 'unknown'
+        INNER JOIN civicrm_activity a ON ac.activity_id = a.id AND a.activity_type_id = $this->activity_type_declaration AND a.subject IN('Eligible','Ineligible') AND a.is_deleted = 0
+
+      SET el.$this->col_claim_status = IF(a.subject = 'Eligible',  'unclaimed', 'ineligible')
+
+      WHERE co.id IN ($list) AND el.$this->col_claim_status = 'unknown'
         AND co.receive_date >= a.activity_date_time
+        AND NOT EXISTS (
+            SELECT ac2.id FROM civicrm_activity_contact ac2
+              INNER JOIN civicrm_activity a2 ON a2.id = ac2.activity_id AND ac2.record_type_id = $this->activity_target_type
+            WHERE ac2.contact_id = c.id AND a2.is_deleted = 0 AND a2.activity_date_time > a.activity_date_time AND a2.id != a.id
+        )
       ";
 
-    CRM_Core_DAO::executeQuery( $sql, [], true, null, true );
-
-    // These unknown eligibility contributions are not eligible.
-    $sql = "UPDATE $this->table_eligibility el
-        INNER JOIN civicrm_contribution co ON el.entity_id = co.id
-        INNER JOIN civicrm_contact c ON co.contact_id = c.id AND c.is_deleted = 0 AND c.is_deceased = 0
-        INNER JOIN civicrm_activity_contact ac ON c.id = ac.contact_id AND ac.record_type_id = $this->activity_target_type
-        INNER JOIN civicrm_activity a ON ac.activity_id = a.id AND a.activity_type_id = $this->activity_type_declaration AND a.subject = 'Ineligible' AND a.is_deleted = 0
-        LEFT JOIN civicrm_activity_contact ac2 ON c.id = ac2.contact_id AND ac2.record_type_id = $this->activity_target_type
-        LEFT JOIN civicrm_activity a2 ON ac2.activity_id = a2.id AND a2.activity_type_id = $this->activity_type_declaration AND a.is_deleted = 0 AND a2.activity_date_time > a.activity_date_time AND a2.id != a.id
-      SET el.$this->col_claim_status = 'ineligible'
-      WHERE co.id IN ($list) AND a2.id IS NULL AND el.$this->col_claim_status = 'unknown'
-        AND co.receive_date >= a.activity_date_time
-      ";
     CRM_Core_DAO::executeQuery( $sql, [], true, null, true );
   }
 

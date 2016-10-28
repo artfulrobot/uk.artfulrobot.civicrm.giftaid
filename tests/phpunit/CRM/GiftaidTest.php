@@ -92,6 +92,54 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
     $this->assertEquals('unclaimed', $contribution[$ga->api_claim_status]);
   }
   /**
+   * Test that an 'unknown' contribution is set to eligible if the last declaration was eligible, even if there was an ineligible one before.
+   */
+  public function testUnknownToUnclaimedIgnoringOlderDeclarations() {
+    $this->createTestContact();
+    $ga = CRM_Giftaid::singleton();
+
+    // Create declaration.
+    $declaration = civicrm_api3('Activity', 'create',[
+      'target_id' => $this->test_contact_id,
+      'source_contact_id' => $this->test_contact_id,
+      'activity_type_id' => $ga->activity_type_declaration,
+      'subject' => 'Ineligible',
+      'activity_date_time' => '2016-01-01', // Before donation.
+    ]);
+    $this->assertEquals(0, $declaration['is_error']);
+
+    // Create ineligible declaration.
+    $declaration = civicrm_api3('Activity', 'create',[
+      'target_id' => $this->test_contact_id,
+      'source_contact_id' => $this->test_contact_id,
+      'activity_type_id' => $ga->activity_type_declaration,
+      'subject' => 'Eligible',
+      'activity_date_time' => '2016-01-02', // After donation.
+    ]);
+    $this->assertEquals(0, $declaration['is_error']);
+
+    // Create donation.
+    $contribution = civicrm_api3('Contribution', 'create', array(
+      'financial_type_id' => "Donation",
+      'total_amount' => 10,
+      'contact_id' => $this->test_contact_id,
+      $ga->api_claim_status => "unknown",
+      'receive_date' => '2016-01-03',
+    ));
+
+    $this->assertEquals(0, $contribution['is_error']);
+
+    // Run the thing on this single contribution.
+    $ga->determineEligibility([$contribution['id']]);
+
+    // Check it worked.
+    $contribution = civicrm_api3('Contribution', 'getsingle', [
+      'id' => $contribution['id'],
+      'return' => $ga->api_claim_status,
+    ]);
+    $this->assertEquals('unclaimed', $contribution[$ga->api_claim_status]);
+  }
+  /**
    * Test that an 'unknown' contribution with no declaration is not marked unclaimed.
    */
   public function testNoActionWithoutDeclaration() {
@@ -121,7 +169,7 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
   /**
    * Test that an 'unknown' contribution made before the declaration is left alone.
    */
-  public function testNoActionBeforeDeclaration() {
+  public function testNoActionBeforeEligibleDeclaration() {
     $this->createTestContact();
     $ga = CRM_Giftaid::singleton();
 
@@ -155,6 +203,111 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
       'return' => $ga->api_claim_status,
     ]);
     $this->assertEquals('unknown', $contribution[$ga->api_claim_status]);
+  }
+  /**
+   * Test that an 'unknown' contribution made before the declaration is left alone.
+   */
+  public function testNoActionBeforeIneligibleDeclaration() {
+    $this->createTestContact();
+    $ga = CRM_Giftaid::singleton();
+
+    // Create donation.
+    $contribution = civicrm_api3('Contribution', 'create', array(
+      'financial_type_id' => "Donation",
+      'total_amount' => 10,
+      'contact_id' => $this->test_contact_id,
+      $ga->api_claim_status => "unknown",
+      'receive_date' => '2016-01-02',
+    ));
+    $this->assertEquals(0, $contribution['is_error']);
+
+    // Create declaration.
+    $declaration = civicrm_api3('Activity', 'create',[
+      'target_id' => $this->test_contact_id,
+      'source_contact_id' => $this->test_contact_id,
+      'activity_type_id' => $ga->activity_type_declaration,
+      'subject' => 'Ineligible',
+      'activity_date_time' => '2016-01-03', // After donation.
+    ]);
+    $this->assertEquals(0, $declaration['is_error']);
+
+
+    // Run the thing on this single contribution.
+    $ga->determineEligibility([$contribution['id']]);
+
+    // Check it worked.
+    $contribution = civicrm_api3('Contribution', 'getsingle', [
+      'id' => $contribution['id'],
+      'return' => $ga->api_claim_status,
+    ]);
+    $this->assertEquals('unknown', $contribution[$ga->api_claim_status]);
+  }
+  /**
+   * Test that only unknown things are affected.
+   */
+  public function testNoActionUnlessUnknown() {
+    $this->createTestContact();
+    $ga = CRM_Giftaid::singleton();
+
+    // Create declaration.
+    $declaration = civicrm_api3('Activity', 'create',[
+      'target_id' => $this->test_contact_id,
+      'source_contact_id' => $this->test_contact_id,
+      'activity_type_id' => $ga->activity_type_declaration,
+      'subject' => 'Eligible',
+      'activity_date_time' => '2016-01-03', // After donation.
+    ]);
+    $this->assertEquals(0, $declaration['is_error']);
+
+    // Create donation.
+    $contribution1 = civicrm_api3('Contribution', 'create', array(
+      'financial_type_id' => "Donation",
+      'total_amount' => 10,
+      'contact_id' => $this->test_contact_id,
+      $ga->api_claim_status => "unclaimed",
+      'receive_date' => '2016-01-02', // After declaration.
+    ));
+    $this->assertEquals(0, $contribution1['is_error']);
+
+    $contribution2 = civicrm_api3('Contribution', 'create', array(
+      'financial_type_id' => "Donation",
+      'total_amount' => 10,
+      'contact_id' => $this->test_contact_id,
+      $ga->api_claim_status => "ineligible",
+      'receive_date' => '2016-01-02', // After declaration.
+    ));
+    $this->assertEquals(0, $contribution2['is_error']);
+
+    $contribution3 = civicrm_api3('Contribution', 'create', array(
+      'financial_type_id' => "Donation",
+      'total_amount' => 10,
+      'contact_id' => $this->test_contact_id,
+      $ga->api_claim_status => "claimed",
+      'receive_date' => '2016-01-02', // After declaration.
+    ));
+    $this->assertEquals(0, $contribution3['is_error']);
+
+    // Run the thing on this single contribution.
+    $ga->determineEligibility([$contribution1['id'], $contribution2['id'], $contribution3['id']]);
+
+    // Check it worked.
+    $contribution = civicrm_api3('Contribution', 'getsingle', [
+      'id' => $contribution1['id'],
+      'return' => $ga->api_claim_status,
+    ]);
+    $this->assertEquals('unclaimed', $contribution[$ga->api_claim_status]);
+
+    $contribution = civicrm_api3('Contribution', 'getsingle', [
+      'id' => $contribution2['id'],
+      'return' => $ga->api_claim_status,
+    ]);
+    $this->assertEquals('ineligible', $contribution[$ga->api_claim_status]);
+
+    $contribution = civicrm_api3('Contribution', 'getsingle', [
+      'id' => $contribution3['id'],
+      'return' => $ga->api_claim_status,
+    ]);
+    $this->assertEquals('claimed', $contribution[$ga->api_claim_status]);
   }
   /**
    * Test that an 'unknown' contribution made after an Ineligible declaration is marked as 'ineligible'.
@@ -194,9 +347,9 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
     $this->assertEquals('ineligible', $contribution[$ga->api_claim_status]);
   }
   /**
-   * Test that an 'unknown' contribution is left alone if the last declaration was Ineligible, even if there was an Eligible one before.
+   * Test that an 'unknown' contribution is set to ineligible if the last declaration was Ineligible, even if there was an Eligible one before.
    */
-  public function testNoActionIfLastDeclarationWasIneligible() {
+  public function testUnknownToIneligibleIgnoringOlderDeclarations() {
     $this->createTestContact();
     $ga = CRM_Giftaid::singleton();
 
@@ -231,7 +384,6 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
 
     $this->assertEquals(0, $contribution['is_error']);
 
-
     // Run the thing on this single contribution.
     $ga->determineEligibility([$contribution['id']]);
 
@@ -240,7 +392,7 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
       'id' => $contribution['id'],
       'return' => $ga->api_claim_status,
     ]);
-    $this->assertEquals('unknown', $contribution[$ga->api_claim_status]);
+    $this->assertEquals('ineligible', $contribution[$ga->api_claim_status]);
   }
   /**
    * Creates a test contact, stores id in $this->test_contact_id;
