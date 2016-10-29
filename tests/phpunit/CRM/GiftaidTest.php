@@ -55,346 +55,6 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
   }
 
   /**
-   * Test that an 'unknown' contribution made after an Eligible declaration is marked as 'unclaimed'.
-   */
-  public function testUnknownToUnclaimed() {
-    $this->createTestContact();
-    $ga = CRM_Giftaid::singleton();
-
-    // Create declaration.
-    $declaration = civicrm_api3('Activity', 'create',[
-      'target_id' => $this->test_contact_id,
-      'source_contact_id' => $this->test_contact_id,
-      'activity_type_id' => $ga->activity_type_declaration,
-      'subject' => 'Eligible',
-      'activity_date_time' => '2016-01-01',
-    ]);
-    $this->assertEquals(0, $declaration['is_error']);
-
-    // Create donation.
-    $contribution = civicrm_api3('Contribution', 'create', array(
-      'financial_type_id' => "Donation",
-      'total_amount' => 10,
-      'contact_id' => $this->test_contact_id,
-      $ga->api_claim_status => "unknown",
-      'receive_date' => '2016-01-02', // After declaration.
-    ));
-    $this->assertEquals(0, $contribution['is_error']);
-
-    // Run the thing on this single contribution.
-    $ga->determineEligibility([$contribution['id']]);
-
-    // Check it worked.
-    $contribution = civicrm_api3('Contribution', 'getsingle', [
-      'id' => $contribution['id'],
-      'return' => $ga->api_claim_status,
-    ]);
-    $this->assertEquals('unclaimed', $contribution[$ga->api_claim_status]);
-  }
-  /**
-   * Test that an 'unknown' contribution is set to eligible if the last declaration was eligible, even if there was an ineligible one before.
-   */
-  public function testUnknownToUnclaimedIgnoringOlderDeclarations() {
-    $this->createTestContact();
-    $ga = CRM_Giftaid::singleton();
-
-    // Create declaration.
-    $declaration = civicrm_api3('Activity', 'create',[
-      'target_id' => $this->test_contact_id,
-      'source_contact_id' => $this->test_contact_id,
-      'activity_type_id' => $ga->activity_type_declaration,
-      'subject' => 'Ineligible',
-      'activity_date_time' => '2016-01-01', // Before donation.
-    ]);
-    $this->assertEquals(0, $declaration['is_error']);
-
-    // Create ineligible declaration.
-    $declaration = civicrm_api3('Activity', 'create',[
-      'target_id' => $this->test_contact_id,
-      'source_contact_id' => $this->test_contact_id,
-      'activity_type_id' => $ga->activity_type_declaration,
-      'subject' => 'Eligible',
-      'activity_date_time' => '2016-01-02', // After donation.
-    ]);
-    $this->assertEquals(0, $declaration['is_error']);
-
-    // Create donation.
-    $contribution = civicrm_api3('Contribution', 'create', array(
-      'financial_type_id' => "Donation",
-      'total_amount' => 10,
-      'contact_id' => $this->test_contact_id,
-      $ga->api_claim_status => "unknown",
-      'receive_date' => '2016-01-03',
-    ));
-
-    $this->assertEquals(0, $contribution['is_error']);
-
-    // Run the thing on this single contribution.
-    $ga->determineEligibility([$contribution['id']]);
-
-    // Check it worked.
-    $contribution = civicrm_api3('Contribution', 'getsingle', [
-      'id' => $contribution['id'],
-      'return' => $ga->api_claim_status,
-    ]);
-    $this->assertEquals('unclaimed', $contribution[$ga->api_claim_status]);
-  }
-  /**
-   * Test that an 'unknown' contribution with no declaration is not marked unclaimed.
-   */
-  public function testNoActionWithoutDeclaration() {
-    $this->createTestContact();
-    $ga = CRM_Giftaid::singleton();
-
-    // Create donation.
-    $contribution = civicrm_api3('Contribution', 'create', array(
-      'financial_type_id' => "Donation",
-      'total_amount' => 10,
-      'contact_id' => $this->test_contact_id,
-      $ga->api_claim_status => "unknown",
-      'receive_date' => '2016-01-02', // After declaration.
-    ));
-    $this->assertEquals(0, $contribution['is_error']);
-
-    // Run the thing on this single contribution.
-    $ga->determineEligibility([$contribution['id']]);
-
-    // Check it worked.
-    $contribution = civicrm_api3('Contribution', 'getsingle', [
-      'id' => $contribution['id'],
-      'return' => $ga->api_claim_status,
-    ]);
-    $this->assertEquals('unknown', $contribution[$ga->api_claim_status]);
-  }
-  /**
-   * Test that an 'unknown' contribution made before the declaration is left alone.
-   */
-  public function testNoActionBeforeEligibleDeclaration() {
-    $this->createTestContact();
-    $ga = CRM_Giftaid::singleton();
-
-    // Create donation.
-    $contribution = civicrm_api3('Contribution', 'create', array(
-      'financial_type_id' => "Donation",
-      'total_amount' => 10,
-      'contact_id' => $this->test_contact_id,
-      $ga->api_claim_status => "unknown",
-      'receive_date' => '2016-01-02',
-    ));
-    $this->assertEquals(0, $contribution['is_error']);
-
-    // Create declaration.
-    $declaration = civicrm_api3('Activity', 'create',[
-      'target_id' => $this->test_contact_id,
-      'source_contact_id' => $this->test_contact_id,
-      'activity_type_id' => $ga->activity_type_declaration,
-      'subject' => 'Eligible',
-      'activity_date_time' => '2016-01-03', // After donation.
-    ]);
-    $this->assertEquals(0, $declaration['is_error']);
-
-
-    // Run the thing on this single contribution.
-    $ga->determineEligibility([$contribution['id']]);
-
-    // Check it worked.
-    $contribution = civicrm_api3('Contribution', 'getsingle', [
-      'id' => $contribution['id'],
-      'return' => $ga->api_claim_status,
-    ]);
-    $this->assertEquals('unknown', $contribution[$ga->api_claim_status]);
-  }
-  /**
-   * Test that an 'unknown' contribution made before the declaration is left alone.
-   */
-  public function testNoActionBeforeIneligibleDeclaration() {
-    $this->createTestContact();
-    $ga = CRM_Giftaid::singleton();
-
-    // Create donation.
-    $contribution = civicrm_api3('Contribution', 'create', array(
-      'financial_type_id' => "Donation",
-      'total_amount' => 10,
-      'contact_id' => $this->test_contact_id,
-      $ga->api_claim_status => "unknown",
-      'receive_date' => '2016-01-02',
-    ));
-    $this->assertEquals(0, $contribution['is_error']);
-
-    // Create declaration.
-    $declaration = civicrm_api3('Activity', 'create',[
-      'target_id' => $this->test_contact_id,
-      'source_contact_id' => $this->test_contact_id,
-      'activity_type_id' => $ga->activity_type_declaration,
-      'subject' => 'Ineligible',
-      'activity_date_time' => '2016-01-03', // After donation.
-    ]);
-    $this->assertEquals(0, $declaration['is_error']);
-
-
-    // Run the thing on this single contribution.
-    $ga->determineEligibility([$contribution['id']]);
-
-    // Check it worked.
-    $contribution = civicrm_api3('Contribution', 'getsingle', [
-      'id' => $contribution['id'],
-      'return' => $ga->api_claim_status,
-    ]);
-    $this->assertEquals('unknown', $contribution[$ga->api_claim_status]);
-  }
-  /**
-   * Test that only unknown things are affected.
-   */
-  public function testNoActionUnlessUnknown() {
-    $this->createTestContact();
-    $ga = CRM_Giftaid::singleton();
-
-    // Create declaration.
-    $declaration = civicrm_api3('Activity', 'create',[
-      'target_id' => $this->test_contact_id,
-      'source_contact_id' => $this->test_contact_id,
-      'activity_type_id' => $ga->activity_type_declaration,
-      'subject' => 'Eligible',
-      'activity_date_time' => '2016-01-03', // After donation.
-    ]);
-    $this->assertEquals(0, $declaration['is_error']);
-
-    // Create donation.
-    $contribution1 = civicrm_api3('Contribution', 'create', array(
-      'financial_type_id' => "Donation",
-      'total_amount' => 10,
-      'contact_id' => $this->test_contact_id,
-      $ga->api_claim_status => "unclaimed",
-      'receive_date' => '2016-01-02', // After declaration.
-    ));
-    $this->assertEquals(0, $contribution1['is_error']);
-
-    $contribution2 = civicrm_api3('Contribution', 'create', array(
-      'financial_type_id' => "Donation",
-      'total_amount' => 10,
-      'contact_id' => $this->test_contact_id,
-      $ga->api_claim_status => "ineligible",
-      'receive_date' => '2016-01-02', // After declaration.
-    ));
-    $this->assertEquals(0, $contribution2['is_error']);
-
-    $contribution3 = civicrm_api3('Contribution', 'create', array(
-      'financial_type_id' => "Donation",
-      'total_amount' => 10,
-      'contact_id' => $this->test_contact_id,
-      $ga->api_claim_status => "claimed",
-      'receive_date' => '2016-01-02', // After declaration.
-    ));
-    $this->assertEquals(0, $contribution3['is_error']);
-
-    // Run the thing on this single contribution.
-    $ga->determineEligibility([$contribution1['id'], $contribution2['id'], $contribution3['id']]);
-
-    // Check it worked.
-    $contribution = civicrm_api3('Contribution', 'getsingle', [
-      'id' => $contribution1['id'],
-      'return' => $ga->api_claim_status,
-    ]);
-    $this->assertEquals('unclaimed', $contribution[$ga->api_claim_status]);
-
-    $contribution = civicrm_api3('Contribution', 'getsingle', [
-      'id' => $contribution2['id'],
-      'return' => $ga->api_claim_status,
-    ]);
-    $this->assertEquals('ineligible', $contribution[$ga->api_claim_status]);
-
-    $contribution = civicrm_api3('Contribution', 'getsingle', [
-      'id' => $contribution3['id'],
-      'return' => $ga->api_claim_status,
-    ]);
-    $this->assertEquals('claimed', $contribution[$ga->api_claim_status]);
-  }
-  /**
-   * Test that an 'unknown' contribution made after an Ineligible declaration is marked as 'ineligible'.
-   */
-  public function testUnknownToIneligible() {
-    $this->createTestContact();
-    $ga = CRM_Giftaid::singleton();
-
-    // Create declaration.
-    $declaration = civicrm_api3('Activity', 'create',[
-      'target_id' => $this->test_contact_id,
-      'source_contact_id' => $this->test_contact_id,
-      'activity_type_id' => $ga->activity_type_declaration,
-      'subject' => 'Ineligible',
-      'activity_date_time' => '2016-01-01',
-    ]);
-    $this->assertEquals(0, $declaration['is_error']);
-
-    // Create donation.
-    $contribution = civicrm_api3('Contribution', 'create', array(
-      'financial_type_id' => "Donation",
-      'total_amount' => 10,
-      'contact_id' => $this->test_contact_id,
-      $ga->api_claim_status => "unknown",
-      'receive_date' => '2016-01-02', // After declaration.
-    ));
-    $this->assertEquals(0, $contribution['is_error']);
-
-    // Run the thing on this single contribution.
-    $ga->determineEligibility([$contribution['id']]);
-
-    // Check it worked.
-    $contribution = civicrm_api3('Contribution', 'getsingle', [
-      'id' => $contribution['id'],
-      'return' => $ga->api_claim_status,
-    ]);
-    $this->assertEquals('ineligible', $contribution[$ga->api_claim_status]);
-  }
-  /**
-   * Test that an 'unknown' contribution is set to ineligible if the last declaration was Ineligible, even if there was an Eligible one before.
-   */
-  public function testUnknownToIneligibleIgnoringOlderDeclarations() {
-    $this->createTestContact();
-    $ga = CRM_Giftaid::singleton();
-
-    // Create declaration.
-    $declaration = civicrm_api3('Activity', 'create',[
-      'target_id' => $this->test_contact_id,
-      'source_contact_id' => $this->test_contact_id,
-      'activity_type_id' => $ga->activity_type_declaration,
-      'subject' => 'Eligible',
-      'activity_date_time' => '2016-01-01', // Before donation.
-    ]);
-    $this->assertEquals(0, $declaration['is_error']);
-
-    // Create ineligible declaration.
-    $declaration = civicrm_api3('Activity', 'create',[
-      'target_id' => $this->test_contact_id,
-      'source_contact_id' => $this->test_contact_id,
-      'activity_type_id' => $ga->activity_type_declaration,
-      'subject' => 'Ineligible',
-      'activity_date_time' => '2016-01-02', // After donation.
-    ]);
-    $this->assertEquals(0, $declaration['is_error']);
-
-    // Create donation.
-    $contribution = civicrm_api3('Contribution', 'create', array(
-      'financial_type_id' => "Donation",
-      'total_amount' => 10,
-      'contact_id' => $this->test_contact_id,
-      $ga->api_claim_status => "unknown",
-      'receive_date' => '2016-01-03',
-    ));
-
-    $this->assertEquals(0, $contribution['is_error']);
-
-    // Run the thing on this single contribution.
-    $ga->determineEligibility([$contribution['id']]);
-
-    // Check it worked.
-    $contribution = civicrm_api3('Contribution', 'getsingle', [
-      'id' => $contribution['id'],
-      'return' => $ga->api_claim_status,
-    ]);
-    $this->assertEquals('ineligible', $contribution[$ga->api_claim_status]);
-  }
-  /**
    * Creates a test contact, stores id in $this->test_contact_id;
    *
    * @return void
@@ -404,5 +64,149 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
     $result = civicrm_api3('Contact', 'create', $this->test_contact_details);
     $this->assertGreaterThan(0, $result['id']);
     $this->test_contact_id = $result['id'];
+  }
+  /**
+   * @dataProvider provider
+   */
+  public function testRunner($params) {
+    $this->createTestContact();
+    $ga = CRM_Giftaid::singleton();
+
+    $date = '2016-01-01';
+    $declarations = $contributions = [];
+    $short = [];
+    foreach ($params['fixture'] as $item) {
+      if ($item['type'] == 'declaration') {
+
+        // Apply defaults.
+        $item += ['subject' => 'Eligible'];
+
+        // Create declaration
+        $result = civicrm_api3('Activity', 'create',[
+          'target_id' => $this->test_contact_id,
+          'source_contact_id' => $this->test_contact_id,
+          'activity_type_id' => $ga->activity_type_declaration,
+          'subject' => $item['subject'],
+          'activity_date_time' => $date,
+        ]);
+        $this->assertEquals(0, $result['is_error']);
+        $declarations[] = $result['id'];
+
+        // Create short description.
+        $short[] = $item['subject'];
+      }
+      elseif ($item['type'] == 'contribution') {
+
+        // Apply defaults.
+        $item += ['status' => 'unknown'];
+
+        // Create contrib.
+        $result = civicrm_api3('Contribution', 'create', array(
+          'financial_type_id' => "Donation",
+          'total_amount' => 10,
+          'contact_id' => $this->test_contact_id,
+          $ga->api_claim_status => $item['status'],
+          'receive_date' => $date,
+        ));
+        $this->assertEquals(0, $result['is_error']);
+        $contributions[] = $result['id'];
+
+        // Create short description.
+        $short[] = "contrib:$item[status]";
+      }
+
+      // Increment date.
+      $date = date('Y-m-d', strtotime("$date + 1 day"));
+    }
+    $short = implode(", ", $short);
+
+    $ga->determineEligibility($contributions);
+
+    $result = civicrm_api3('Contribution', 'get', [
+      'id' => $contributions,
+      'return' => $ga->api_claim_status,
+    ]);
+    foreach ($params['expectations'] as $contribution_i => $expectation) {
+
+      $got = $result['values'][$contributions[$contribution_i]][$ga->api_claim_status];
+
+      $this->assertEquals($expectation, $got,
+        "Failed on $short: expected contribution " . ($contribution_i+ 1) . " to be $expectation, but is $got"
+      );
+    }
+  }
+  public function provider() {
+    return [
+      [[
+        'fixture' => [
+          ['type' => 'declaration'],
+          ['type' => 'contribution'],
+        ],
+        'expectations' => [ 'unclaimed' ],
+      ]],
+
+      [[
+        'fixture' => [
+          ['type' => 'declaration', 'subject' => 'Ineligible'],
+          ['type' => 'declaration'],
+          ['type' => 'contribution'],
+        ],
+        'expectations' => [ 'unclaimed' ],
+      ]],
+
+      [[
+        'fixture' => [
+          ['type' => 'contribution'],
+        ],
+        'expectations' => [ 'unknown' ],
+      ]],
+
+
+      // weird one.
+      [[
+        'fixture' => [
+          ['type' => 'declaration'],
+          ['type' => 'contribution'],
+          ['type' => 'declaration'],
+        ],
+        'expectations' => [ 'unknown' ],
+      ]],
+
+      [[
+        'fixture' => [
+          ['type' => 'contribution'],
+          ['type' => 'declaration'],
+        ],
+        'expectations' => [ 'unknown' ],
+      ]],
+
+      [[
+        'fixture' => [
+          ['type' => 'declaration'],
+          ['type' => 'contribution', 'status' => 'unclaimed'],
+          ['type' => 'contribution', 'status' => 'claimed'],
+          ['type' => 'contribution', 'status' => 'ineligible'],
+        ],
+        'expectations' => [ 'unclaimed', 'claimed', 'ineligible' ],
+      ]],
+
+      [[
+        'fixture' => [
+          ['type' => 'declaration', 'subject' => 'Ineligible'],
+          ['type' => 'contribution'],
+        ],
+        'expectations' => [ 'ineligible' ],
+      ]],
+
+      [[
+        'fixture' => [
+          ['type' => 'declaration'],
+          ['type' => 'declaration', 'subject' => 'Ineligible'],
+          ['type' => 'contribution'],
+        ],
+        'expectations' => [ 'ineligible' ],
+      ]],
+
+    ];
   }
 }
