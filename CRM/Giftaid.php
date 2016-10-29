@@ -67,17 +67,16 @@ class CRM_Giftaid {
    *
    * This gets fairly complicated, see tests for expectations.
    *
+   * Note this is a tool for the Gift Aid Guru. It is not a get rich quick scheme.
+   * There are lots of things you can do wrong, e.g. by selecing the wrong set of contributions
+   * (such as non-donations).
+   *
    * @param array $contribution_ids Array of integers. Only these contributions will be affected.
    * @return void
    */
   public function determineEligibility($contribution_ids) {
 
-    // Get comma separated list of contribution ids, ensuring they're all
-    // integers so there can't be any SQL injection.
-    $list = implode(',', array_filter(array_map(function($_) { return (int) $_; }, $contribution_ids)));
-    if (!$list) {
-      throw new \InvalidArgumentException("No contribution Ids to process.");
-    }
+    $list = $this->integerArrayToString($contribution_ids);
 
     // Find unique contacts, and the last declaration from them.
     // These unknown eligibility contributions are eligible, unclaimed.
@@ -105,6 +104,115 @@ class CRM_Giftaid {
       ";
 
     CRM_Core_DAO::executeQuery( $sql, [], true, null, true );
+  }
+
+  /**
+   * Check we have an array of integers, return them comma separated string.
+   *
+   * @param array $contribution_ids Array of integers.
+   * @return string
+   */
+  public function integerArrayToString($contribution_ids) {
+
+    // Get comma separated list of contribution ids, ensuring they're all
+    // integers so there can't be any SQL injection.
+    $list = implode(',', array_filter(array_map(function($_) { return (int) $_; }, $contribution_ids)));
+    if (!$list) {
+      throw new \InvalidArgumentException("No contribution Ids to process.");
+    }
+    return $list;
+  }
+
+  /**
+   * Export for HMRC Report
+   *
+   * Generate a table of contributions that you could copy-n-paste into an HMRC spreadsheet.
+   *
+   * See the not-for-dummies warning on determineEligibility().
+   *
+   * Get all contributions.
+   * Aggregate by donor, using date of latest payment.
+   * https://www.gov.uk/guidance/schedule-spreadsheet-to-claim-back-tax-on-gift-aid-donations
+   *
+   * Output fields
+   * - title
+   * - first name
+   * - last name
+   * - first line of address (street_address) or full address if overseas
+   * - postcode or X if overseas
+   * - aggregated donations (not in use)
+   * - sponsored event (not in use)
+   * - donation date or latest donation from regular donor.
+   * - amount
+   *
+   * @todo ought to handle those living overseas. This is fairly simple, but it
+   * means getting the address formatted correctly, which is a configurable
+   * thing, so to do it properly it means using that config. PRs welcome.
+   *
+   * @param array $contribution_ids Array of integers. Only these contributions will be included.
+   * @return array
+   */
+  public function getHMRCReportData($contribution_ids) {
+
+    if (!$contribution_ids) {
+      return [];
+    }
+
+    $contributions = civicrm_api3('Contribution', 'get', [
+      'sequential' => 1,
+      'id' => $contribution_ids,
+      'return' => ['total_amount', 'receive_date', 'contact_id'],
+      'options' => ['limit' => 100000],
+    ]);
+    if ($contributions['count'] == 100000) {
+      throw new \Exception("Sorry, this sytem can only cope with 100,000 contributions at once.");
+    }
+
+    // get unique contacts.
+    $contacts = [];
+    foreach ($contributions['values'] as $contribution) {
+      $contacts[$contribution['contact_id']] = 1;
+    }
+    $contacts = civicrm_api3('Contact', 'get', [
+      'id' => array_keys($contacts),
+      'return' => ['formal_title', 'first_name', 'last_name', 'street_address', 'postal_code'],
+      'options' => ['limit' => 100000],
+    ]);
+
+    $output = [];
+    $required = array_fill_keys(['title', 'first_name', 'last_name', 'postal_code', 'street_address'], '');
+    foreach ($contributions['values'] as $contribution) {
+      $contact_id = $contribution['contact_id'];
+      $contact = $contacts['values'][$contact_id];
+      if (!isset($output[$contact_id])) {
+        // New person.
+        // Ensure we have the keys we need.
+        $output[$contact_id] = array_intersect_key($contact, $required) + $required;
+
+        // Initialise amount and date.
+        $output[$contact_id]['amount'] = 0;
+        $output[$contact_id]['date'] = '0000-00-00';
+      }
+
+      // Add in the amount.
+      $output[$contact_id]['amount'] += $contribution['total_amount'];
+      // Set date unless this is an earlier contribution to one already included.
+      $_ = substr($contribution['receive_date'], 0, 10);
+      if ($_ > $output[$contact_id]['date']) {
+        $output[$contact_id]['date'] = $_;
+      }
+    }
+
+    // Sort by name because it's useful for humans.
+    uasort($output, function($a, $b) {
+      $_ = strcasecmp($a['last_name'], $b['last_name']);
+      if ($_ == 0) {
+        $_ = strcasecmp($a['first_name'], $b['first_name']);
+      }
+      return $_;
+    });
+
+    return $output;
   }
 
 }

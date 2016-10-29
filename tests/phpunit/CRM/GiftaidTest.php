@@ -36,7 +36,7 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
         'street_address' => '3 Cave St.',
         'city' => 'London',
         'postal_code' => 'N1 1ZZ',
-        'country_id' => 1226,
+        // 'country_id' => 1226,
         ];
   public function setUpHeadless() {
     // Civi\Test has many helpers, like install(), uninstall(), sql(), and sqlFile().
@@ -64,11 +64,14 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
     $result = civicrm_api3('Contact', 'create', $this->test_contact_details);
     $this->assertGreaterThan(0, $result['id']);
     $this->test_contact_id = $result['id'];
+    $params = $this->test_address + ['contact_id' => $this->test_contact_id, 'location_type_id' => 'Home'];
+    $result = civicrm_api3('Address', 'create', $params);
+    $this->assertGreaterThan(0, $result['id']);
   }
   /**
-   * @dataProvider provider
+   * @dataProvider determineEligibilityDataProvider
    */
-  public function testRunner($params) {
+  public function testDetermineEligibility($params) {
     $this->createTestContact();
     $ga = CRM_Giftaid::singleton();
 
@@ -137,7 +140,7 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
       );
     }
   }
-  public function provider() {
+  public function determineEligibilityDataProvider() {
     return [
       // No declaration.
       [[
@@ -318,5 +321,37 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
 
 
     ];
+  }
+  public function testHMRCReportData() {
+    $this->createTestContact();
+    $ga = CRM_Giftaid::singleton();
+
+    // Create contrib.
+    $result = civicrm_api3('Contribution', 'create', array(
+      'financial_type_id' => "Donation",
+      'total_amount' => 10,
+      'contact_id' => $this->test_contact_id,
+      $ga->api_claim_status => 'unclaimed',
+      'receive_date' => '2016-01-01',
+    ));
+    $this->assertEquals(0, $result['is_error']);
+    $contributions[] = $result['id'];
+
+    $result = civicrm_api3('Contribution', 'create', array(
+      'financial_type_id' => "Donation",
+      'total_amount' => 10,
+      'contact_id' => $this->test_contact_id,
+      $ga->api_claim_status => 'unclaimed',
+      'receive_date' => '2016-02-01',
+    ));
+    $this->assertEquals(0, $result['is_error']);
+    $contributions[] = $result['id'];
+
+    $hmrc = $ga->getHMRCReportData($contributions);
+    $this->assertEquals(20, $hmrc[$this->test_contact_id]['amount']);
+    $this->assertEquals('2016-02-01', $hmrc[$this->test_contact_id]['date']);
+    $this->assertEquals($this->test_contact_details['first_name'], $hmrc[$this->test_contact_id]['first_name']);
+    $this->assertEquals($this->test_contact_details['last_name'], $hmrc[$this->test_contact_id]['last_name']);
+    $this->assertEquals($this->test_address['street_address'], $hmrc[$this->test_contact_id]['street_address']);
   }
 }
