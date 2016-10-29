@@ -27,7 +27,7 @@ CRM.$(function() {
   origSubject.after(
     CRM.$('<select id="subject" name="subject">'
       + '<option value="Eligible">Eligible for Gift Aid</option>'
-      + '<option value="Ineigible">Ineigible for Gift Aid</option>'
+      + '<option value="Ineligible">Ineligible for Gift Aid</option>'
       + '</select>'
     ).val(eligibility)
   ).remove();
