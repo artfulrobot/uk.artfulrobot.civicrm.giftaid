@@ -223,6 +223,33 @@ function giftaid_civicrm_searchTasks($object_name, &$tasks) {
     ];
   }
 }
+
+/**
+ * @todo see if we can replace the activity subject with a drop down eligible/ineligible.
+ */
+function giftaid_civicrm_buildForm($formName, &$form) {
+  if ($formName == 'CRM_Activity_Form_Activity'
+    && CRM_Core_Permission::check('edit all contacts')) {
+
+    // look up activity type id and status_id
+    /*
+    $elem_status_id           = $form->getElement('status_id');
+    $current_status_value     = $elem_status_id->getValue();
+    $current_status_id        = $current_status_value[0];
+     */
+    $current_activity_type_id = $form->getVar('_activityTypeId');
+    if (CRM_Giftaid::singleton()->activity_type_declaration != $current_activity_type_id) {
+      // This is not one of our activities.
+      return;
+    }
+
+    //CRM_Core_Resources::singleton()->addVars('de.systopia.xcm', $constants);
+
+    CRM_Core_Region::instance('form-body')->add(array(
+      'script' => file_get_contents(__DIR__ . '/activity-alter.js')
+    ));
+  }
+}
 /**
  * Functions below this ship commented out. Uncomment as required.
  *
