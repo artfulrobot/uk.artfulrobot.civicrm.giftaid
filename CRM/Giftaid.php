@@ -65,6 +65,8 @@ class CRM_Giftaid {
   /**
    * Change 'unknown' eligibility to 'unclaimed' or 'ineligible' based on declaration activities.
    *
+   * This gets fairly complicated, see tests for expectations.
+   *
    * @param array $contribution_ids Array of integers. Only these contributions will be affected.
    * @return void
    */
@@ -93,7 +95,12 @@ class CRM_Giftaid {
         AND NOT EXISTS (
             SELECT ac2.id FROM civicrm_activity_contact ac2
               INNER JOIN civicrm_activity a2 ON a2.id = ac2.activity_id AND ac2.record_type_id = $this->activity_target_type
-            WHERE ac2.contact_id = c.id AND a2.is_deleted = 0 AND a2.activity_date_time > a.activity_date_time AND a2.id != a.id
+            WHERE ac2.contact_id = c.id
+              AND a2.is_deleted = 0
+              AND a2.activity_date_time >= a.activity_date_time
+              AND a2.activity_date_time <= co.receive_date
+              AND a2.subject != a.subject
+              AND a2.id != a.id
         )
       ";
 

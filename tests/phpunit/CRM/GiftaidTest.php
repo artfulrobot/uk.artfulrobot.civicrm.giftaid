@@ -115,8 +115,10 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
         $short[] = "contrib:$item[status]";
       }
 
-      // Increment date.
-      $date = date('Y-m-d', strtotime("$date + 1 day"));
+      // Increment date, unless 'same_day_follows' set.
+      if (!isset($item['same_day_follows'])) {
+        $date = date('Y-m-d', strtotime("$date + 1 day"));
+      }
     }
     $short = implode(", ", $short);
 
@@ -137,23 +139,7 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
   }
   public function provider() {
     return [
-      [[
-        'fixture' => [
-          ['type' => 'declaration'],
-          ['type' => 'contribution'],
-        ],
-        'expectations' => [ 'unclaimed' ],
-      ]],
-
-      [[
-        'fixture' => [
-          ['type' => 'declaration', 'subject' => 'Ineligible'],
-          ['type' => 'declaration'],
-          ['type' => 'contribution'],
-        ],
-        'expectations' => [ 'unclaimed' ],
-      ]],
-
+      // No declaration.
       [[
         'fixture' => [
           ['type' => 'contribution'],
@@ -161,17 +147,8 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
         'expectations' => [ 'unknown' ],
       ]],
 
-
-      // weird one.
-      [[
-        'fixture' => [
-          ['type' => 'declaration'],
-          ['type' => 'contribution'],
-          ['type' => 'declaration'],
-        ],
-        'expectations' => [ 'unknown' ],
-      ]],
-
+      // 1 declaration.
+      // ... declaration after contrib
       [[
         'fixture' => [
           ['type' => 'contribution'],
@@ -179,7 +156,16 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
         ],
         'expectations' => [ 'unknown' ],
       ]],
-
+      // ... declaration before contribs
+      [[
+        'fixture' => [
+          ['type' => 'declaration'],
+          ['type' => 'contribution'],
+          ['type' => 'contribution'],
+        ],
+        'expectations' => [ 'unclaimed', 'unclaimed' ],
+      ]],
+      // ... check non 'unknown' status left alone.
       [[
         'fixture' => [
           ['type' => 'declaration'],
@@ -189,7 +175,17 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
         ],
         'expectations' => [ 'unclaimed', 'claimed', 'ineligible' ],
       ]],
-
+      // ... same but with -ve
+      [[
+        'fixture' => [
+          ['type' => 'declaration', 'subject' => 'Ineligible'],
+          ['type' => 'contribution', 'status' => 'unclaimed'],
+          ['type' => 'contribution', 'status' => 'claimed'],
+          ['type' => 'contribution', 'status' => 'ineligible'],
+        ],
+        'expectations' => [ 'unclaimed', 'claimed', 'ineligible' ],
+      ]],
+      // ... -ve declaration.
       [[
         'fixture' => [
           ['type' => 'declaration', 'subject' => 'Ineligible'],
@@ -198,6 +194,19 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
         'expectations' => [ 'ineligible' ],
       ]],
 
+      // 2 declarations
+      // ... NY££
+      [[
+        'fixture' => [
+          ['type' => 'declaration', 'subject' => 'Ineligible'],
+          ['type' => 'declaration'],
+          ['type' => 'contribution'],
+          ['type' => 'contribution'],
+        ],
+        'expectations' => [ 'unclaimed', 'unclaimed' ],
+      ]],
+
+      // ... YN£
       [[
         'fixture' => [
           ['type' => 'declaration'],
@@ -206,6 +215,107 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
         ],
         'expectations' => [ 'ineligible' ],
       ]],
+
+      // ... Y£Y
+      [[
+        'fixture' => [
+          ['type' => 'declaration'],
+          ['type' => 'contribution'],
+          ['type' => 'declaration'],
+        ],
+        'expectations' => [ 'unclaimed' ],
+      ]],
+
+      // ... Y£N£
+      [[
+        'fixture' => [
+          ['type' => 'declaration'],
+          ['type' => 'contribution'],
+          ['type' => 'declaration', 'subject' => 'Ineligible'],
+          ['type' => 'contribution'],
+        ],
+        'expectations' => [ 'unclaimed', 'ineligible' ],
+      ]],
+
+
+      // ... N£Y£
+      [[
+        'fixture' => [
+          ['type' => 'declaration', 'subject' => 'Ineligible'],
+          ['type' => 'contribution'],
+          ['type' => 'declaration'],
+          ['type' => 'contribution'],
+        ],
+        'expectations' => ['ineligible', 'unclaimed' ],
+      ]],
+
+      // Check same day.
+      [[
+        'fixture' => [
+          ['type' => 'declaration', 'same_day_follows' => TRUE ],
+          ['type' => 'contribution'],
+        ],
+        'expectations' => ['unclaimed' ],
+      ]],
+
+
+      // Y then £N on same day.
+      [[
+        'fixture' => [
+          ['type' => 'declaration'],
+          ['type' => 'contribution', 'same_day_follows' => TRUE ],
+          ['type' => 'declaration', 'subject' => 'Ineligible'],
+        ],
+        'expectations' => ['ineligible' ],
+      ]],
+
+      // N then £Y on same day.
+      [[
+        'fixture' => [
+          ['type' => 'declaration', 'subject' => 'Ineligible'],
+          ['type' => 'contribution', 'same_day_follows' => TRUE ],
+          ['type' => 'declaration'],
+        ],
+        'expectations' => ['unclaimed' ],
+      ]],
+
+      // Yes and no on same day. Stupid, we should leave it alone?
+      [[
+        'fixture' => [
+          ['type' => 'declaration', 'subject' => 'Ineligible', 'same_day_follows' => TRUE ],
+          ['type' => 'declaration', 'same_day_follows' => TRUE ],
+          ['type' => 'contribution'],
+        ],
+        'expectations' => ['unknown'],
+      ]],
+      // Same, other way around.
+      [[
+        'fixture' => [
+          ['type' => 'declaration', 'same_day_follows' => TRUE ],
+          ['type' => 'declaration', 'subject' => 'Ineligible', 'same_day_follows' => TRUE ],
+          ['type' => 'contribution'],
+        ],
+        'expectations' => ['unknown'],
+      ]],
+      // Two yeses on same day: should be considered eligible.
+      [[
+        'fixture' => [
+          ['type' => 'declaration', 'same_day_follows' => TRUE ],
+          ['type' => 'declaration', 'same_day_follows' => TRUE ],
+          ['type' => 'contribution'],
+        ],
+        'expectations' => ['unclaimed'],
+      ]],
+      // Two Nos on same day: should act like just one.
+      [[
+        'fixture' => [
+          ['type' => 'declaration', 'subject' => 'Ineligible', 'same_day_follows' => TRUE ],
+          ['type' => 'declaration', 'subject' => 'Ineligible', 'same_day_follows' => TRUE ],
+          ['type' => 'contribution'],
+        ],
+        'expectations' => ['ineligible'],
+      ]],
+
 
     ];
   }
