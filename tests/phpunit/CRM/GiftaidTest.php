@@ -556,4 +556,96 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
     $this->assertEquals('Betty', $lines[1]['first_name']);
 
   }
+  /**
+   * Tests that getContributions works as expected.
+   */
+  public function testGetContributions() {
+
+    $this->createTestContact();
+    $ga = CRM_Giftaid::singleton();
+
+
+    $contribution_ids = [];
+    // Create contrib.
+    $result = civicrm_api3('Contribution', 'create', array(
+      'financial_type_id' => "Donation",
+      'total_amount' => 10,
+      'contact_id' => $this->test_contact_id,
+      $ga->api_claim_status => 'unclaimed',
+      'receive_date' => '2016-01-01',
+    ));
+    $this->assertEquals(0, $result['is_error']);
+    $contribution_ids[] = $result['id'];
+    $result = civicrm_api3('Contribution', 'create', array(
+      'financial_type_id' => "Donation",
+      'total_amount' => 12,
+      'contact_id' => $this->test_contact_id,
+      $ga->api_claim_status => 'claimed',
+      'receive_date' => '2016-01-02',
+    ));
+    $this->assertEquals(0, $result['is_error']);
+    $contribution_ids[] = $result['id'];
+
+    // Test it works without a filter
+    $c = $ga->getContributions($contribution_ids);
+    $this->assertCount(2, $c);
+    $this->assertEquals(10, $c[$contribution_ids[0]]['amount']);
+    $this->assertEquals($this->test_contact_id, $c[$contribution_ids[0]]['contact_id']);
+    $this->assertEquals('2016-01-01 00:00:00', $c[$contribution_ids[0]]['receive_date']);
+    $this->assertEquals('unclaimed', $c[$contribution_ids[0]]['ga_status']);
+    // check the 2nd contact.
+    $this->assertEquals(12, $c[$contribution_ids[1]]['amount']);
+
+    // Test it works with a filter.
+    $c = $ga->getContributions($contribution_ids, ['unclaimed']);
+    $this->assertCount(1, $c);
+    $this->assertEquals(10, $c[$contribution_ids[0]]['amount']);
+    $this->assertEquals($this->test_contact_id, $c[$contribution_ids[0]]['contact_id']);
+    $this->assertEquals('2016-01-01 00:00:00', $c[$contribution_ids[0]]['receive_date']);
+    $this->assertEquals('unclaimed', $c[$contribution_ids[0]]['ga_status']);
+  }
+  /**
+   * Tests that claimContributions works as expected.
+   */
+  public function testClaimContributions() {
+
+    $this->createTestContact();
+    $ga = CRM_Giftaid::singleton();
+
+    $contribution_ids = [];
+    // Create contrib.
+    $result = civicrm_api3('Contribution', 'create', array(
+      'financial_type_id' => "Donation",
+      'total_amount' => 10,
+      'contact_id' => $this->test_contact_id,
+      $ga->api_claim_status => 'unclaimed',
+      'receive_date' => '2016-01-01',
+    ));
+    $this->assertEquals(0, $result['is_error']);
+    $contribution_ids[] = $result['id'];
+    $result = civicrm_api3('Contribution', 'create', array(
+      'financial_type_id' => "Donation",
+      'total_amount' => 12,
+      'contact_id' => $this->test_contact_id,
+      $ga->api_claim_status => 'claimed',
+      $ga->api_claimcode => 'old',
+      'receive_date' => '2016-01-02',
+    ));
+    $this->assertEquals(0, $result['is_error']);
+    $contribution_ids[] = $result['id'];
+
+    $contributions = $ga->getContributions($contribution_ids);
+    $claim_code = date('Y-m-d:H:i:s');
+    $ga->claimContributions($contributions, $claim_code);
+
+    // Now check we have what we expect.
+    $result = civicrm_api3('Contribution', 'get', [
+      'id' => $contribution_ids,
+      'return' => [$ga->api_claim_status, $ga->api_claimcode],
+    ]);
+    $this->assertEquals('claimed', $result['values'][$contribution_ids[0]][$ga->api_claim_status]);
+    $this->assertEquals($claim_code, $result['values'][$contribution_ids[0]][$ga->api_claimcode]);
+    $this->assertEquals('claimed', $result['values'][$contribution_ids[1]][$ga->api_claim_status]);
+    $this->assertEquals('old', $result['values'][$contribution_ids[1]][$ga->api_claimcode]);
+  }
 }

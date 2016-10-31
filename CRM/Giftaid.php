@@ -64,6 +64,11 @@ class CRM_Giftaid {
 
     $this->activity_type_declaration= (int) civicrm_api3('OptionValue', 'getvalue',
       ['return' => "value", 'option_group_id' => "activity_type", 'name' => "ar_giftaid_declaration"]);
+
+    $this->col_claimcode = civicrm_api3('CustomField', 'getvalue',
+      ['return' => "column_name", 'name' => "ar_giftaid_contribution_claimcode"]);
+    $this->api_claimcode = preg_replace('/^.*(_\d+)$/', 'custom$1', $this->col_claimcode);
+
   }
 
   // Main tasks.
@@ -269,7 +274,7 @@ class CRM_Giftaid {
     header('Expires: 0');
 
     $out = fopen('php://output', 'w');
-    // Apparently this help Excep understand that it's UTF-8.
+    // Apparently this help Excel understand that it's UTF-8.
     fputs($out, $bom =( chr(0xEF) . chr(0xBB) . chr(0xBF) ));
 
     foreach ($lines as $_) {
@@ -462,6 +467,8 @@ class CRM_Giftaid {
 
   /**
    * Update unclaimed to claimed.
+   *
+   * @param array $contributions array of arrays as from getContributions()
    * @param string string claim_code to use.
    */
   public function claimContributions($contributions, $claim_code) {
@@ -480,7 +487,7 @@ class CRM_Giftaid {
     // Update. Nb. the SQL also checks to only update unclaimed codes, just in case.
     $sql = "UPDATE $this->table_eligibility
       SET $this->col_claim_status = 'claimed',
-          $this->col_claim_code = '$claim_code'
+          $this->col_claimcode = '$claim_code'
       WHERE id IN (" . implode(',', $to_update) . ")
         AND $this->col_claim_status = 'unclaimed';";
     CRM_Core_DAO::executeQuery( $sql, [], true, null, true );
