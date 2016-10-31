@@ -277,6 +277,7 @@ class CRM_Giftaid {
     // Apparently this help Excel understand that it's UTF-8.
     fputs($out, $bom =( chr(0xEF) . chr(0xBB) . chr(0xBF) ));
 
+    fputcsv($out, ['Title', 'First Name', 'Last Name', 'Address', 'Postcode', 'Aggregated donations', 'Sponsored Event', 'Donation Date', 'Amount']);
     foreach ($lines as $_) {
       fputcsv($out, $_);
     }
@@ -488,7 +489,7 @@ class CRM_Giftaid {
     $sql = "UPDATE $this->table_eligibility
       SET $this->col_claim_status = 'claimed',
           $this->col_claimcode = '$claim_code'
-      WHERE id IN (" . implode(',', $to_update) . ")
+      WHERE entity_id IN (" . implode(',', $to_update) . ")
         AND $this->col_claim_status = 'unclaimed';";
     CRM_Core_DAO::executeQuery( $sql, [], true, null, true );
 

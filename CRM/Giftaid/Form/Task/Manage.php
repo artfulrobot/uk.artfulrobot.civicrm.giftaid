@@ -62,6 +62,14 @@ class CRM_Giftaid_Form_Task_Manage extends CRM_Contribute_Form_Task {
         'Include these contributions in a new claim as an aggregate.'
       );
     }
+    // Do we need to offer checkbox to include ok contribs?
+    if ($summary['claimed']['count']) {
+      $this->add(
+        'advcheckbox', // type
+        'claimed_include', // field name
+        'Re-generate claim data'
+      );
+    }
     // Do we need to offer the check unknown?
     if (FALSE && $summary['unknown']['count']) {
 
@@ -131,10 +139,17 @@ class CRM_Giftaid_Form_Task_Manage extends CRM_Contribute_Form_Task {
         CRM_Giftaid::singleton()->determineEligibility($this->_contributionIds);
         CRM_Core_Session::setStatus("Contributions updated.");
       }
+      elseif ($values['_qf_Manage_submit'] == 'regenerate_claimed') {
+        // Like Create a claim but it won't update anything.
+
+        $ga_status_allowed = ['claimed'];
+        $include_aggregates = TRUE;
+        CRM_Giftaid::singleton()->makeClaim($this->_contributionIds, $ga_status_allowed, $include_aggregates);
+      }
       elseif ($values['_qf_Manage_submit'] == 'create_claim') {
         // Create a claim. Nb. if this is called on non-unclaimed stuff it won't update anything.
 
-        $ga_status_allowed = [];
+        $ga_status_allowed = ['unclaimed'];
         $include_aggregates = FALSE;
         if (!empty($values['unclaimed_ok_include'])) {
           $ga_status_allowed []= 'unclaimed';
@@ -143,13 +158,10 @@ class CRM_Giftaid_Form_Task_Manage extends CRM_Contribute_Form_Task {
           $ga_status_allowed []= 'unclaimed';
           $include_aggregates = TRUE;
         }
-        if (!empty($values['claimed'])) {
-          $ga_status_allowed []= 'claimed';
-          $include_aggregates = TRUE;
-        }
-        if (count($ga_status_allowed)>1) {
+        $ga_status_allowed = array_unique($ga_status_allowed);
+        if (count($ga_status_allowed)!=1) {
           // @todo move this to validation.
-          CRM_Core_Session::setStatus("Can't mix claimed and unclaimed in one report.");
+          CRM_Core_Session::setStatus("No contributions selected. Use the check-boxes.");
         }
         else {
           // Hopefully this will show on the next screen they visit.

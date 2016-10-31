@@ -52,8 +52,11 @@
       <td>{$gaSummary.claimed.count}</td>
       <td>{$gaSummary.claimed.contacts|@count}</td>
       <td><p>These contributions have already had Gift Aid claimed</p>
-        {$form.claimed_include.html}
-        {$form.claimed_include.label}
+        <p>Note that regenerating the claim spreadsheet will not change any
+        data, however, data such as name and address may have changed in the
+        database since the original claim was made. This is a convenience
+        function; you should keep records of all files you submit to HMRC.</p>
+        <button name="_qf_Manage_submit" class="crm-form-submit" value="regenerate_claimed" >Regenerate Claim</button>
       </td>
     </tr>
     {/if}
