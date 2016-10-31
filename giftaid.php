@@ -212,6 +212,11 @@ function giftaid_civicrm_searchTasks($object_name, &$tasks) {
   if ($object_name == 'contribution') {
     // Add our task.
     $tasks []= [
+      'title'  => ts( 'Gift Aid administration' ),
+      'class'  => 'CRM_Giftaid_Form_Task_Manage',
+      'result' => FALSE,
+    ];
+    $tasks []= [
       'title'  => ts( 'Gift Aid: Update Unclaimed eligible to Claimed' ),
       'class'  => 'CRM_Giftaid_Form_Task_SetClaimed',
       'result' => FALSE,
