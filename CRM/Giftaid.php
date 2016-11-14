@@ -285,6 +285,44 @@ class CRM_Giftaid {
     exit; // @todo nicer.
   }
 
+  /**
+   * Wrapper for adding an activity.
+   *
+   * @param Array $details Keys are as follows:
+   * - contact_id
+   * - details     Optional.
+   * - eligibility Eligible|Ineligible (defaults to Eligible)
+   * - date        Defaults to now.
+   *
+   */
+  public function recordDeclaration($details) {
+
+    $params = [
+      'target_id' => $details['contact_id'],
+      'source_contact_id' => $details['contact_id'],
+      'activity_type_id' => $this->activity_type_declaration,
+    ];
+    if (!empty($details['date'])) {
+      $params['activity_date_time'] = $details['date'];
+    }
+    if (!empty($details['details'])) {
+      $params['details'] = $details['details'];
+    }
+    if (!empty($details['eligibility'])) {
+      if (in_array($details['eligibility'], ['Eligible', 'Ineligible'])) {
+        $params['subject'] = $details['eligibility'];
+      }
+      else {
+        throw new \InvalidArgumentException("eligibility must be either Eligible or Ineligible. '$details[eligibility]' given.");
+      }
+    }
+    else {
+      $params['subject'] = 'Eligible';
+    }
+
+    $result = civicrm_api3('Activity', 'create', $params);
+    return $result;
+  }
   // Internals.
   /**
    * Check we have an array of integers, return them comma separated string.
