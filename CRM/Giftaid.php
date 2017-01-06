@@ -138,7 +138,7 @@ class CRM_Giftaid {
 
       // Keep track of min/max range.
       $date = substr($contribution['receive_date'], 0, 10); // 2016-01-01 == 10 characters.
-      if (!isset($contributions['earliest']) || $contributions['earliest']<$date) {
+      if (!isset($contributions['earliest']) || $contributions['earliest']>$date) {
         $contributions['earliest'] = $date;
       }
       if (!isset($contributions['latest']) || $contributions['latest']<$date) {
@@ -267,7 +267,7 @@ class CRM_Giftaid {
       CRM_Core_Session::setStatus("$affected contribution(s) updated with new claim code: $claim_code", 'Gift Aid', 'success');
     }
     else {
-      CRM_Core_Session::setStatus("No contributions were modified.", 'Gift Aid', 'info');
+      // Disabled this as seems confusing. CRM_Core_Session::setStatus("No contributions were modified.", 'Gift Aid', 'info');
     }
 
     // Output CSV.
