@@ -247,7 +247,7 @@ class CRM_Giftaid {
   public function makeClaim($contribution_ids, $ga_status_allowed, $include_aggregates) {
 
     if (!$contribution_ids) {
-      CRM_Core_Session::setStatus("No contributions selected.");
+      CRM_Core_Session::setStatus("No contributions selected.", 'Gift Aid');
       return;
     }
 
@@ -262,14 +262,20 @@ class CRM_Giftaid {
     // OK, we're ready to output the data. Now's a good time to update the claim.
     // Use timestamp as a claim code.
     $claim_code = date('Y-m-d:H:i:s');
-    $this->claimContributions($contributions, $claim_code);
+    $affected = $this->claimContributions($contributions, $claim_code);
+    if ($affected) {
+      CRM_Core_Session::setStatus("$affected contribution(s) updated with new claim code: $claim_code", 'Gift Aid', 'success');
+    }
+    else {
+      CRM_Core_Session::setStatus("No contributions were modified.", 'Gift Aid', 'info');
+    }
 
     // Output CSV.
     // Make a safer looking filename.
     $filename = str_replace(':', '-', $claim_code) . '.csv';
     header('Content-Description: File Transfer');
     header('Content-Type: text/csv');
-    header("Content-Disposition: attachment;\n    filename=$filename");
+    header("Content-Disposition: attachment; filename=$filename");
     header('Content-Transfer-Encoding: binary');
     header('Expires: 0');
 
@@ -282,7 +288,10 @@ class CRM_Giftaid {
       fputcsv($out, $_);
     }
     fclose($out);
-    exit; // @todo nicer.
+
+
+    // The problem with exiting here is that you can't make the page reload. So the user might try to repeat the operation. :-( @todo
+    exit;
   }
 
   /**
@@ -569,6 +578,7 @@ class CRM_Giftaid {
    *
    * @param array $contributions array of arrays as from getContributions()
    * @param string string claim_code to use.
+   * @return int affected rows.
    */
   public function claimContributions($contributions, $claim_code) {
 
@@ -580,7 +590,7 @@ class CRM_Giftaid {
       }
     }
     if (!$to_update) {
-      return;
+      return 0;
     }
 
     // Update. Nb. the SQL also checks to only update unclaimed codes, just in case.
@@ -589,8 +599,9 @@ class CRM_Giftaid {
           $this->col_claimcode = '$claim_code'
       WHERE entity_id IN (" . implode(',', $to_update) . ")
         AND $this->col_claim_status = 'unclaimed';";
-    CRM_Core_DAO::executeQuery( $sql, [], true, null, true );
+    $dao = CRM_Core_DAO::executeQuery( $sql, [], true, null, true );
 
+    return $dao->N;
   }
 
   /**

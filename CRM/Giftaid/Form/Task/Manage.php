@@ -137,7 +137,7 @@ class CRM_Giftaid_Form_Task_Manage extends CRM_Contribute_Form_Task {
       elseif ($values['_qf_Manage_submit'] == 'determine_eligibility_unknown') {
         // Determine eligibility on the contributions.
         CRM_Giftaid::singleton()->determineEligibility($this->_contributionIds);
-        CRM_Core_Session::setStatus("Contributions updated.");
+        CRM_Core_Session::setStatus("Contributions updated.", 'Gift Aid', 'success');
       }
       elseif ($values['_qf_Manage_submit'] == 'regenerate_claimed') {
         // Like Create a claim but it won't update anything.
@@ -161,12 +161,12 @@ class CRM_Giftaid_Form_Task_Manage extends CRM_Contribute_Form_Task {
         $ga_status_allowed = array_unique($ga_status_allowed);
         if (count($ga_status_allowed)!=1) {
           // @todo move this to validation.
-          CRM_Core_Session::setStatus("No contributions selected. Use the check-boxes.");
+          CRM_Core_Session::setStatus("No contributions selected. Use the check-boxes.", 'Gift Aid');
         }
         else {
           // Hopefully this will show on the next screen they visit.
           // Haven't figured out how to send browser CSV and redirect them...
-          CRM_Core_Session::setStatus("Contributions updated.");
+          CRM_Core_Session::setStatus("Contributions updated.", 'Gift Aid', 'success');
           CRM_Giftaid::singleton()->makeClaim($this->_contributionIds, $ga_status_allowed, $include_aggregates);
         }
       }

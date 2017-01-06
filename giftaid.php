@@ -225,6 +225,7 @@ function giftaid_civicrm_searchTasks($object_name, &$tasks) {
       'class'  => 'CRM_Giftaid_Form_Task_Manage',
       'result' => FALSE,
     ];
+    /*
     $tasks []= [
       'title'  => ts( 'Gift Aid: Update Unclaimed eligible to Claimed' ),
       'class'  => 'CRM_Giftaid_Form_Task_SetClaimed',
@@ -235,6 +236,7 @@ function giftaid_civicrm_searchTasks($object_name, &$tasks) {
       'class'  => 'CRM_Giftaid_Form_Task_SetEligibility',
       'result' => FALSE,
     ];
+     */
   }
 }
 
