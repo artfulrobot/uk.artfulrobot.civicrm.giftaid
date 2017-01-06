@@ -40,7 +40,7 @@ class CRM_Giftaid_Form_Task_Manage extends CRM_Contribute_Form_Task {
     }
 
     // Tidy amounts.
-    foreach (['unknown_ok', 'unknown_missing_data', 'unknown_aggregate', 'unclaimed', 'no_data', 'claimed', 'ineligible'] as $_) {
+    foreach (['unclaimed_ok', 'unclaimed_missing_data', 'unclaimed_aggregate', 'unknown', 'no_data', 'claimed', 'ineligible'] as $_) {
       $summary[$_]['total'] = number_format($summary[$_]['total'], 2, ".", ",");
     }
 
