@@ -203,7 +203,11 @@ _giftaid_civix_civicrm_angularModules($angularModules);
 function giftaid_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
   _giftaid_civix_civicrm_alterSettingsFolders($metaDataFolders);
 }
-// LineItem, FinancialItem, Contribution, Activity
+/**
+ * Ensure the default gift aid details are set when a Contribution is created.
+ *
+ * Implements hook_civicrm_post.
+ */
 function giftaid_civicrm_post($op, $objectName, $objectId, &$objectRef) {
   if ($objectId && $op == 'create' && $objectName == 'Contribution') {
     CRM_Giftaid::singleton()->applyDefaultsWhereMissing($objectId);

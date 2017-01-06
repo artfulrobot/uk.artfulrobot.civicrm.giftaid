@@ -336,8 +336,15 @@ class CRM_Giftaid {
    * Nb. when a Contribution is created (API, UI) this runs before that process
    * sets the custom data.
    * http://civicrm.stackexchange.com/a/16549/35
+   *
+   * @param int $contribution_id of the Contribution to check.
+   * @return NULL
    */
   public function applyDefaultsWhereMissing($contribution_id) {
+    $contribution_id = (int) $contribution_id;
+    if ($contribution_id < 1) {
+      throw new InvalidArgumentException("Expected integer contribution_id.");
+    }
     // Contribution just created. If it does not have a gift aid status, set it to unknown.
     $result = civicrm_api3('CustomValue', 'get', [
       'sequential' => 1,
@@ -364,6 +371,8 @@ class CRM_Giftaid {
    *
    * Whereas applyDefaultsWhereMissing() runs on a single record, this searches ALL contributions.
    * It is probably only called when you first install the extension.
+   *
+   * @return NULL
    */
   public function createDefaultsWhereMissing() {
     $sql = "INSERT INTO $this->table_eligibility (entity_id, $this->col_claim_status, $this->col_claimcode)
