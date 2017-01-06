@@ -323,6 +323,57 @@ class CRM_Giftaid {
     $result = civicrm_api3('Activity', 'create', $params);
     return $result;
   }
+  /**
+   * Ensure that the given contribution record has a custom gift aid values record.
+   *
+   * When Contributions are created by the API they do not automatically get a
+   * record in the custom value table. This means you can not search for
+   * 'unknown' eligibility which is essential.
+   *
+   * This function checks for a custom data record and if not found it creates
+   * one with the default values.
+   *
+   * Nb. when a Contribution is created (API, UI) this runs before that process
+   * sets the custom data.
+   * http://civicrm.stackexchange.com/a/16549/35
+   */
+  public function applyDefaultsWhereMissing($contribution_id) {
+    // Contribution just created. If it does not have a gift aid status, set it to unknown.
+    $result = civicrm_api3('CustomValue', 'get', [
+      'sequential' => 1,
+      'entity_id' => $contribution_id,
+      'entity_type' => "Contribution",
+      'return.ar_giftaid_contribution:ar_giftaid_contribution_status' => 1,
+    ]);
+    CRM_Core_Error::debug_log_message("Contribution $contribution_id has $result[count] record(s).");
+
+    if ($result['count'] == 0) {
+      // Create the default entry.
+      $result = civicrm_api3('CustomValue', 'create', [
+        'sequential' => 1,
+        'entity_id' => $contribution_id,
+        'entity_type' => "Contribution",
+        $this->api_claim_status => 'unknown',
+        $this->api_claimcode => '',
+      ]);
+      CRM_Core_Error::debug_log_message("Contribution $contribution_id: Created default row. " . json_encode($result));
+    }
+  }
+  /**
+   * Creates default records for all contributions that do not have one.
+   *
+   * Whereas applyDefaultsWhereMissing() runs on a single record, this searches ALL contributions.
+   * It is probably only called when you first install the extension.
+   */
+  public function createDefaultsWhereMissing() {
+    $sql = "INSERT INTO $this->table_eligibility (entity_id, $this->col_claim_status, $this->col_claimcode)
+      SELECT c.id entity_id, 'unknown' $this->col_claim_status, '' $this->col_claimcode
+      FROM civicrm_contribution c
+      WHERE NOT EXISTS (
+        SELECT entity_id FROM $this->table_eligibility WHERE entity_id = c.id
+      )";
+    CRM_Core_DAO::executeQuery($sql);
+  }
   // Internals.
   /**
    * Check we have an array of integers, return them comma separated string.

@@ -203,7 +203,12 @@ _giftaid_civix_civicrm_angularModules($angularModules);
 function giftaid_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
   _giftaid_civix_civicrm_alterSettingsFolders($metaDataFolders);
 }
-
+// LineItem, FinancialItem, Contribution, Activity
+function giftaid_civicrm_post($op, $objectName, $objectId, &$objectRef) {
+  if ($objectId && $op == 'create' && $objectName == 'Contribution') {
+    CRM_Giftaid::singleton()->applyDefaultsWhereMissing($objectId);
+  }
+}
 
 /**
  * Implements https://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_searchTasks

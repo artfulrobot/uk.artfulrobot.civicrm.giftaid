@@ -56,6 +56,20 @@ function _giftaid_civix_civicrm_install() {
 }
 
 /**
+ * Implements hook_civicrm_postInstall().
+ *
+ * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_postInstall
+ */
+function _giftaid_civix_civicrm_postInstall() {
+  _giftaid_civix_civicrm_config();
+  if ($upgrader = _giftaid_civix_upgrader()) {
+    if (is_callable(array($upgrader, 'onPostInstall'))) {
+      $upgrader->onPostInstall();
+    }
+  }
+}
+
+/**
  * Implements hook_civicrm_uninstall().
  *
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_uninstall
