@@ -74,6 +74,20 @@
             
                 <li class="toctree-l3"><a href="#usage">Usage</a></li>
                 
+                    <li><a class="toctree-l4" href="#check-you-know-your-stuff-and-a-disclaimer">Check you know your stuff. (and a disclaimer!)</a></li>
+                
+                    <li><a class="toctree-l4" href="#typical-workflow">Typical workflow</a></li>
+                
+                    <li><a class="toctree-l4" href="#record-donations">Record Donations</a></li>
+                
+                    <li><a class="toctree-l4" href="#record-declarations">Record Declarations</a></li>
+                
+                    <li><a class="toctree-l4" href="#identify-eligibility-of-the-unknowns-based-on-the-declaration">Identify eligibility of the 'unknowns' based on the declaration.</a></li>
+                
+                    <li><a class="toctree-l4" href="#make-a-claim">Make a claim</a></li>
+                
+                    <li><a class="toctree-l4" href="#good-to-know">Good to know</a></li>
+                
             
             </ul>
         
@@ -115,7 +129,127 @@
             <div class="section">
               
                 <h1 id="usage">Usage</h1>
-<p>@todo</p>
+<h2 id="check-you-know-your-stuff-and-a-disclaimer">Check you know your stuff. (and a disclaimer!)</h2>
+<p>You need to be up-to-date on what you can and cannot claim Gift Aid on. There
+may be a time when things change and this extension is no fit for use (please
+submit an
+<a href="https://github.com/artfulrobot/uk.artfulrobot.civicrm.giftaid/issues">Issue</a> if
+so!) and you need to know this rather than rely on the tool!</p>
+<p>Typically you need to record a declaration and a payment needs to have been for
+the purposes of donating to your registered charity. Some donations may come
+through that you know are not eligible (e.g. someone has collected money from
+elsewhere and gives it to you as a one off donation using your online donation
+form); it's up to you to ensure Gift Aid is not claimed on this.</p>
+<h2 id="typical-workflow">Typical workflow</h2>
+<ol>
+<li>Collect donations and declarations.</li>
+<li>Do a claim for a batch of donations.</li>
+</ol>
+<h2 id="record-donations">Record Donations</h2>
+<p>You collect donations and they are entered as Contributions in CiviCRM. This may
+be an online process, manual data entry, a contributions import or an API-driven
+integration -- anything is valid.</p>
+<p>Note that there's a new Gift Aid fieldset on contributions with a drop-down containing:</p>
+<ul>
+<li>Unknown</li>
+<li>NOT eligible for Gift Aid</li>
+<li>Eligible but not yet claimed</li>
+<li>Eligible and has been claimed</li>
+</ul>
+<p>As seen here:
+<img alt="Screenshot showing Gift Aid fieldset" src="../images/new-contrib.png" /></p>
+<p>This defaults to <strong>Unknown</strong>, and that's fine for now - keep reading.</p>
+<h2 id="record-declarations">Record Declarations</h2>
+<p>You also collect Gift Aid declarations from people. People may tell you "this
+one donation is eligible" or they may tell you "treat all of my donations from
+now on as eligible". They may also tell you "My donations are not/no longer
+eligible for Gift Aid".</p>
+<p>You can store Gift Aid Declarations (either positive or negative) using the Gift
+Aid Declaration activity. The date of the activity serves as the date the
+declaration is valid from, so you could back-date it. If you do back date it,
+it's probably a good idea to record what you did in the Details section so that
+someone looking at the record in future understands what you did.</p>
+<p><img alt="Screenshot showing Gift Aid Declaration" src="../images/declaration.png" /></p>
+<p>Note that for third party integrations there's a helper method to record a
+declaration activity.</p>
+<h2 id="identify-eligibility-of-the-unknowns-based-on-the-declaration">Identify eligibility of the 'unknowns' based on the declaration.</h2>
+<p>So far, unless we manually set the eligibility status, our donations are all of
+'unknown' eligibility. Now it's time to make a claim and we need to know which
+ones are and which ones are not eligible of these unknowns.</p>
+<p>Do a Contributions Search to find the unknowns. You'll want to filter for
+Eligibility: Unknown, but also it's up to you to select only charitable
+donations as CiviCRM Contributions can also include payments for goods and
+services. Of course the contributions search can also pick up contributions from
+Organisations, or non UK residents, too. So you need to know your organisation's
+data well.</p>
+<p>On the search results page select all the contributions and choose Gift Aid
+administration:</p>
+<p><img alt="Screenshot of search results page" src="../images/contrib-task.png" /></p>
+<p>You should then see something like this:</p>
+<p><img alt="Screenshot of GA admin" src="../images/manage-1.png" /></p>
+<p>Hit that button and you should be bounced back to a Find Contributions page with
+a message that the contributions have been updated:</p>
+<ul>
+<li>
+<p>Contributions belonging to a contact who had an "I am eligible" declaration
+  before the donation will have been set to "Eligible, not yet claimed".</p>
+</li>
+<li>
+<p>Contributions whose contact had an explicit "I am NOT eligible" declaration
+  before the donation will have been set to "NOT eligible".</p>
+</li>
+<li>
+<p>Contributions whose contact does not have any declarations will have been left
+  as "Unknown"</p>
+</li>
+</ul>
+<h2 id="make-a-claim">Make a claim</h2>
+<p>Do another Contributions search for charitable donations. You can also filter
+for "Eligible, not yet claimed" contributions. For the sake of helping
+understand how this extension works, here's what it looks like if you forget to
+filter on eligible contributions:</p>
+<p><img alt="Screenshot of GA admin screen with mix of contributions" src="../images/manage-2.png" /></p>
+<p>From this screen you can get key stats on your next claim:</p>
+<ul>
+<li>
+<p>"Could Claim". This is (hopefully!) the bulk of your claim. You'll want to
+  tick that box to include these in your claim.</p>
+</li>
+<li>
+<p>"Could claim under aggregate". These contributions belong to contacts with
+  missing name and/or address data. However it is possible to claim gift aid on
+  these by aggregating them together since every contribution is less than £20.
+  If you're happy that this is legit' you can check that checkbox to include
+  these aggregated contributions too.</p>
+</li>
+</ul>
+<p>At the bottom you'll see a <strong>Create Claim</strong> button. Click that will produce a
+spreadsheet that you can copy and paste into the Inland Revenue's claim
+template spreadsheet. <strong>You MUST save that spreadsheet for your records</strong>.</p>
+<p>Example:</p>
+<p><img alt="Screenshot of sample spreadsheet" src="../images/spreadsheet.png" /></p>
+<p>At the same time as generating that spreadsheet, it marks the contributions as
+claimed. It uses a timestamp as a "claim code" - this is just a way to get hold
+of all the contributions in a certain claim at a later date, should you need to.</p>
+<h2 id="good-to-know">Good to know</h2>
+<p>When determining eligibility the extension makes a timeline of all declarations
+leading up to the date the contribution was made; only the last one of these is
+valid for that particular contribution. So it's clever enough to pick
+contributions that fall within a window of eligibility.</p>
+<p>The make a claim process will refuse to work on any contributions that are not
+marked "Eligible, not yet claimed". So if you click it having searched for
+"Not eligible" contributions, you'll get an empty spreadsheet and no data will
+have been changed.</p>
+<p>The comparison of contribution and declaration is down to the second(!). So it's
+important that the declaration proceeds the contribution; a declaration
+recorded later in the day than the contribution won't make that contribution
+eligible. This is a bit silly really, and is just because it would take more
+code to round to the day. But it potentially has its uses working this way, so
+that's how it is for now.</p>
+<p>The only data that is changed by the "Gift Aid Administration" process is the
+two Gift Aid fields (claim code and eligibility) on those contributions. So if
+you make a mistake you can reset them, either manually or by using a profile to
+update the contributions, or such.</p>
               
             </div>
           </div>
