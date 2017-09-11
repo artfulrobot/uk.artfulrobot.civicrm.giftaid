@@ -1,0 +1,54 @@
+{
+    "docs": [
+        {
+            "location": "/",
+            "text": "CiviCRM Simple UK Gift Aid Extension\n\n\nThere's several Gift Aid extensions, what does this one do?\n\n\n\n\n\n\nIt adds a field on every contribution to allow you to select whether it is\n   eligible for Gift Aid, and whether Gift Aid has been claimed on it yet.\n\n\n\n\n\n\nIt provides a Administer Gift Aid tool, launched from a Contributions search,\n   that provides a spreadsheet in a format suitable for copy-and-pasting into an\n   Inland Revenue claim spreadsheet from those matched contributions. It then\n   marks those as claimed.\n\n\n\n\n\n\nIn doing (2) it tries to use the rules around aggregate small donations to\n   enable you to claim Gift Aid on contributions that lack of data (e.g.\n   address) would have otherwise prevented you from claiming.\n\n\n\n\n\n\nIt does NOT:\n\n\n\n\n\n\nautomatically do anything. It's a tool to assist you in a fiddly task, not a robot.\n\n\n\n\n\n\ndo online submissions to HMRC.\n\n\n\n\n\n\nArtful Robot wrote this\n\n\nThat's me. I'm a UK based developer stitching together open source technologies\nto make websites and databases that help people and organisations change the world.\n\n\nYou can hire me if you like :-) My website's \nartfulrobot.uk",
+            "title": "Home"
+        },
+        {
+            "location": "/#civicrm-simple-uk-gift-aid-extension",
+            "text": "",
+            "title": "CiviCRM Simple UK Gift Aid Extension"
+        },
+        {
+            "location": "/#theres-several-gift-aid-extensions-what-does-this-one-do",
+            "text": "It adds a field on every contribution to allow you to select whether it is\n   eligible for Gift Aid, and whether Gift Aid has been claimed on it yet.    It provides a Administer Gift Aid tool, launched from a Contributions search,\n   that provides a spreadsheet in a format suitable for copy-and-pasting into an\n   Inland Revenue claim spreadsheet from those matched contributions. It then\n   marks those as claimed.    In doing (2) it tries to use the rules around aggregate small donations to\n   enable you to claim Gift Aid on contributions that lack of data (e.g.\n   address) would have otherwise prevented you from claiming.    It does NOT:    automatically do anything. It's a tool to assist you in a fiddly task, not a robot.    do online submissions to HMRC.",
+            "title": "There's several Gift Aid extensions, what does this one do?"
+        },
+        {
+            "location": "/#artful-robot-wrote-this",
+            "text": "That's me. I'm a UK based developer stitching together open source technologies\nto make websites and databases that help people and organisations change the world.  You can hire me if you like :-) My website's  artfulrobot.uk",
+            "title": "Artful Robot wrote this"
+        },
+        {
+            "location": "/installation/",
+            "text": "Installing and Requirements\n\n\nRequirements\n\n\nThis extension has been written against CiviCRM 4.7 with PHP 5.6 and MariaDB\n10.0 (MariaDB is a drop-in replacement for MySQL that I have found to be more\nperformant than MySQL for CiviCRM, a recent version of MySQL should work just as\nwell), it requires InnoDB and UTF-8 support.\n\n\nI have used it in Drupal and Wordpress setups.\n\n\nAny problems running against other versions please \nsubmit an\nissue\n and ideally\na pull request :-)\n\n\nDownload and install the extension\n\n\nDownload as a ZIP/tgz file (or clone the repo) from\n\n\nhttps://github.com/artfulrobot/uk.artfulrobot.civicrm.giftaid/releases\n\n\nAnwyay, you want to end up with a directory called\n\nuk.artfulrobot.civicrm.giftaid\n within your CiviCRM extensions directory.\n\n\nThen visit \nCiviCRM \u00bb Administer \u00bb System Settings \u00bb Extensions\n and install it.",
+            "title": "Installation"
+        },
+        {
+            "location": "/installation/#installing-and-requirements",
+            "text": "",
+            "title": "Installing and Requirements"
+        },
+        {
+            "location": "/installation/#requirements",
+            "text": "This extension has been written against CiviCRM 4.7 with PHP 5.6 and MariaDB\n10.0 (MariaDB is a drop-in replacement for MySQL that I have found to be more\nperformant than MySQL for CiviCRM, a recent version of MySQL should work just as\nwell), it requires InnoDB and UTF-8 support.  I have used it in Drupal and Wordpress setups.  Any problems running against other versions please  submit an\nissue  and ideally\na pull request :-)",
+            "title": "Requirements"
+        },
+        {
+            "location": "/installation/#download-and-install-the-extension",
+            "text": "Download as a ZIP/tgz file (or clone the repo) from  https://github.com/artfulrobot/uk.artfulrobot.civicrm.giftaid/releases  Anwyay, you want to end up with a directory called uk.artfulrobot.civicrm.giftaid  within your CiviCRM extensions directory.  Then visit  CiviCRM \u00bb Administer \u00bb System Settings \u00bb Extensions  and install it.",
+            "title": "Download and install the extension"
+        },
+        {
+            "location": "/usage/",
+            "text": "Usage\n\n\n@todo",
+            "title": "Usage"
+        },
+        {
+            "location": "/usage/#usage",
+            "text": "@todo",
+            "title": "Usage"
+        }
+    ]
+}
