@@ -335,6 +335,8 @@ class CRM_Giftaid {
   /**
    * Ensure that the given contribution record has a custom gift aid values record.
    *
+   * @deprecated this is no longer needed.
+   *
    * When Contributions are created by the API they do not automatically get a
    * record in the custom value table. This means you can not search for
    * 'unknown' eligibility which is essential.
