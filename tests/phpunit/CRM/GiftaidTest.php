@@ -43,7 +43,7 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
     // See: https://github.com/civicrm/org.civicrm.testapalooza/blob/master/civi-test.md
     return \Civi\Test::headless()
       ->installMe(__DIR__)
-      ->apply();
+      ->apply($force_recreate=FALSE);
   }
 
   public function setUp() {
@@ -647,5 +647,65 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
     $this->assertEquals($claim_code, $result['values'][$contribution_ids[0]][$ga->api_claimcode]);
     $this->assertEquals('claimed', $result['values'][$contribution_ids[1]][$ga->api_claim_status]);
     $this->assertEquals('old', $result['values'][$contribution_ids[1]][$ga->api_claimcode]);
+  }
+  /**
+   * Create a contribution that has been claimed and belongs to a recurring
+   * contribution. Use repeattransaction to make a new one and check that it
+   * does not inherit the claimed status.
+   *
+   * @see https://github.com/artfulrobot/uk.artfulrobot.civicrm.giftaid/issues/1
+   */
+  public function testIssue1RepeatContribs() {
+    $this->createTestContact();
+    $ga = CRM_Giftaid::singleton();
+
+    // We need a payment processor.
+    $payment_processor_id = civicrm_api3('PaymentProcessor', 'create', [
+      'payment_processor_type_id' => "Dummy",
+      'financial_account_id'      => "Payment Processor Account",
+    ])['id'];
+
+    $contrib_recur = civicrm_api3('ContributionRecur', 'create', [
+      'financial_type_id'      => 1,
+      'amount'                 => 10,
+      'contact_id'             => $this->test_contact_id,
+      'contribution_status_id' => 'In Progress',
+      'frequency_interval'     => 1,
+      'payment_processor_id'   => $payment_processor_id,
+    ]);
+    $contrib_recur = civicrm_api3('ContributionRecur', 'getsingle',
+      [ 'id' => $contrib_recur['id'] ]);
+
+    // Create contrib that has been clamied.
+    $contribution_1 = civicrm_api3('Contribution', 'create', [
+      'contribution_recur_id'  => $contrib_recur['id'],
+      'financial_type_id'      => "Donation",
+      'total_amount'           => 10,
+      'contact_id'             => $this->test_contact_id,
+      'trxn_id'                => 'contrib1',
+      'contribution_status_id' => 'Completed',
+      $ga->api_claim_status    => 'claimed',
+      $ga->api_claimcode       => 'claim1',
+      'receive_date'           => '2020-01-01',
+    ]);
+    $this->assertEquals(0, $contribution_1['is_error']);
+    $contribution_1 = civicrm_api3('Contribution', 'getsingle', ['id' => $contribution_1['id']]);
+
+    // Duplicate
+    $contribution_2 = civicrm_api3('Contribution', 'repeattransaction', [
+      'contribution_recur_id'  => $contrib_recur['id'],
+      'contribution_status_id' => 'Completed',
+      'contact_id'             => $this->test_contact_id,
+      'trxn_id'                => 'contrib2',
+      'receive_date'           => '2020-01-02',
+      'total_amount'           => 10,
+    ]);
+
+    // Reload contrib 2
+    $contribution_2 = civicrm_api3('Contribution', 'getsingle', [ 'id' => $contribution_2['id'] ]);
+    // Check the gift aid fields are blank.
+    $this->assertEquals('unknown', $contribution_2[$ga->api_claim_status] ?? '');
+    $this->assertEquals('', $contribution_2[$ga->api_claimcode] ?? '');
+
   }
 }
