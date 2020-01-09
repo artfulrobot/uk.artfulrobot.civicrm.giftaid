@@ -30,6 +30,16 @@ class CRM_Giftaid {
   public $api_claim_status;
 
   /**
+   * @var string column name for the claim code field.
+   */
+  public $col_claimcode;
+
+  /**
+   * @var string e.g. 'custom_13' to use in the API.
+   */
+  public $api_claimcode;
+
+  /**
    * @var string table name for the contribution eligibility group.
    */
   public $table_eligibility;
