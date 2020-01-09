@@ -257,35 +257,14 @@ function giftaid_civicrm_buildForm($formName, &$form) {
   }
 }
 /**
- * Functions below this ship commented out. Uncomment as required.
  *
-
-/**
- * Implements hook_civicrm_preProcess().
+ * https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_apiWrappers/
  *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_preProcess
- *
-function giftaid_civicrm_preProcess($formName, &$form) {
-
-} // */
-
-/**
- * Implements hook_civicrm_navigationMenu().
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_navigationMenu
- *
-function giftaid_civicrm_navigationMenu(&$menu) {
-  _giftaid_civix_insert_navigation_menu($menu, NULL, array(
-    'label' => ts('The Page', array('domain' => 'uk.artfulrobot.civicrm.giftaid')),
-    'name' => 'the_page',
-    'url' => 'civicrm/the-page',
-    'permission' => 'access CiviReport,access CiviContribute',
-    'operator' => 'OR',
-    'separator' => 0,
-  ));
-  _giftaid_civix_navigationMenu($menu);
-} // */
-
-
-// My helpers.
-
+ * @param Array &$wrappers
+ * @param Array $apiRequest
+ */
+function giftaid_civicrm_apiWrappers(&$wrappers, $apiRequest) {
+  if ($apiRequest['entity'] === 'Contribution' && $apiRequest['action'] === 'repeattransaction') {
+    $wrappers[] = new CRM_Giftaid_ApiWrapperRepeatContribution();
+  }
+}
