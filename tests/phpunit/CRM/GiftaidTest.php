@@ -18,7 +18,7 @@ use Civi\Test\TransactionalInterface;
  *
  * @group headless
  */
-class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInterface, HookInterface, TransactionalInterface {
+class CRM_GiftaidTest extends \PHPUnit\Framework\TestCase implements HeadlessInterface, HookInterface, TransactionalInterface {
 
   /**
    * @var test_contact_id
@@ -707,5 +707,120 @@ class CRM_GiftaidTest extends \PHPUnit_Framework_TestCase implements HeadlessInt
     $this->assertEquals('unknown', $contribution_2[$ga->api_claim_status] ?? '');
     $this->assertEquals('', $contribution_2[$ga->api_claimcode] ?? '');
 
+  }
+  /**
+   * We rely on CiviCRM creating a default custom data value for each contribution.
+   */
+  public function testDefaultValuesApi3() {
+    $this->createTestContact();
+    $ga = CRM_Giftaid::singleton();
+
+    // We need a payment processor.
+    $payment_processor_id = civicrm_api3('PaymentProcessor', 'create', [
+      'payment_processor_type_id' => "Dummy",
+      'financial_account_id'      => "Payment Processor Account",
+    ])['id'];
+
+
+    $commonParams = [
+      'financial_type_id'      => "Donation",
+      'total_amount'           => 10,
+      'contact_id'             => $this->test_contact_id,
+      'contribution_status_id' => 'Completed',
+    ];
+
+    //
+    // First, assert that we have not broken anything.
+    // Create contrib that has values for the custom data, check it's saved as it normally is.
+    //
+    $contribution = civicrm_api3('Contribution', 'create', $commonParams + [
+      $ga->api_claimcode       => 'test123',
+      $ga->api_claim_status    => 'claimed',
+    ]);
+    $contribution = civicrm_api3('Contribution', 'getsingle', ['id' => $contribution['id'], 'return' => ['id', $ga->api_claim_status, $ga->api_claimcode]]);
+    $this->assertArrayHasKey($ga->api_claim_status, $contribution);
+    $this->assertEquals('claimed', $contribution[$ga->api_claim_status] ?? '(null/missing)');
+    $this->assertEquals('test123', $contribution[$ga->api_claimcode] ?? '');
+
+    //
+    // Now test our main use-case: a contribution is created without passing any of the custom values.
+    // We expect and desire that the defaults are set.
+    //
+    $contribution = civicrm_api3('Contribution', 'create', $commonParams);
+    $contribution = civicrm_api3('Contribution', 'getsingle', ['id' => $contribution['id'], 'return' => ['id', $ga->api_claim_status, $ga->api_claimcode]]);
+    $this->assertArrayHasKey($ga->api_claim_status, $contribution);
+    $this->assertEquals('unknown', $contribution[$ga->api_claim_status] ?? '(null/missing)');
+    $this->assertEquals('', $contribution[$ga->api_claimcode] ?? '');
+
+    //
+    // Next: check we've not broken normal behaviour again when setting one of
+    // the custom fields but not the other.
+    //
+    $contribution_3 = civicrm_api3('Contribution', 'create', $commonParams + [
+      $ga->api_claim_status    => 'ineligible',
+    ]);
+    $contribution_3 = civicrm_api3('Contribution', 'getsingle', ['id' => $contribution_3['id'], 'return' => ['id', $ga->api_claim_status, $ga->api_claimcode]]);
+    $this->assertArrayHasKey($ga->api_claim_status, $contribution_3);
+    $this->assertEquals('ineligible', $contribution_3[$ga->api_claim_status] ?? '(null/missing)');
+    $this->assertEquals('', $contribution_3[$ga->api_claimcode] ?? '(null/missing)');
+
+    //
+    // Edge case that should never happen in this extension.  Create contrib
+    // that has a claim code but no claim status. We expect the default to be
+    // set for the claim status.
+    //
+    $contribution = civicrm_api3('Contribution', 'create', $commonParams + [
+      $ga->api_claimcode       => 'test123',
+    ]);
+    $contribution = civicrm_api3('Contribution', 'getsingle', ['id' => $contribution['id'], 'return' => ['id', $ga->api_claim_status, $ga->api_claimcode]]);
+    $this->assertArrayHasKey($ga->api_claim_status, $contribution);
+    $this->assertEquals('unknown', $contribution[$ga->api_claim_status] ?? '(null/missing)');
+    $this->assertEquals('test123', $contribution[$ga->api_claimcode] ?? '');
+
+  }
+
+  /**
+   * We rely on CiviCRM creating a default custom data value for each contribution.
+   */
+  public function testDefaultValuesApi4() {
+    $this->createTestContact();
+    $ga = CRM_Giftaid::singleton();
+
+    // We need a payment processor.
+    $payment_processor_id = civicrm_api3('PaymentProcessor', 'create', [
+      'payment_processor_type_id' => "Dummy",
+      'financial_account_id'      => "Payment Processor Account",
+    ])['id'];
+
+    // Create contrib that has been clamied.
+    $results = \Civi\Api4\Contribution::create()
+      ->addValue('contact_id', $this->test_contact_id)
+      ->addValue('financial_type_id', 1) // API4 can't handle 'Donation here.'
+      ->addValue('total_amount', 10)
+      ->addValue('contribution_status_id', 1) // ditto, Completed.
+      ->execute()->first();
+    $contribution_1 = civicrm_api3('Contribution', 'getsingle', ['id' => $results['id'], 'return' => ['id', $ga->api_claim_status, $ga->api_claimcode]]);
+    $this->assertArrayHasKey($ga->api_claim_status, $contribution_1);
+    $this->assertEquals('unknown', $contribution_1[$ga->api_claim_status] ?? '(null/missing)');
+    $this->assertEquals('', $contribution_1[$ga->api_claimcode] ?? '');
+  }
+  /**
+   * Check the main test case if the Order API is used instead.
+   */
+  public function testDefaultValuesOrderApi3() {
+    $this->createTestContact();
+    $ga = CRM_Giftaid::singleton();
+
+    // Create contrib that has been clamied.
+    $contribution_1 = civicrm_api3('Order', 'create', [
+      'contact_id'             => $this->test_contact_id,
+      'financial_type_id'      => "Donation",
+      'total_amount'           => 10,
+      'contribution_status_id' => 'Pending',
+    ]);
+    $contribution_1 = civicrm_api3('Contribution', 'getsingle', ['id' => $contribution_1['id']]);
+    $this->assertArrayHasKey($ga->api_claim_status, $contribution_1);
+    $this->assertEquals('unknown', $contribution_1[$ga->api_claim_status] ?? '(null/missing)');
+    $this->assertEquals('', $contribution_1[$ga->api_claimcode] ?? '');
   }
 }

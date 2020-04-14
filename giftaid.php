@@ -264,7 +264,7 @@ function giftaid_civicrm_buildForm($formName, &$form) {
  * @param Array $apiRequest
  */
 function giftaid_civicrm_apiWrappers(&$wrappers, $apiRequest) {
-  if ($apiRequest['entity'] === 'Contribution' && $apiRequest['action'] === 'repeattransaction') {
-    $wrappers[] = new CRM_Giftaid_ApiWrapperRepeatContribution();
+  if ($apiRequest['entity'] === 'Contribution' && $apiRequest['action'] === 'create') {
+    $wrappers[] = new CRM_Giftaid_ApiWrapperContributionCreate();
   }
 }
