@@ -63,6 +63,19 @@ class CRM_Giftaid_Upgrader extends CRM_Giftaid_Upgrader_Base {
     return TRUE;
   }
 
+  /**
+   * This is now included in the postInstall hook.
+   * It's included in v1.5 because there were cases that 1.4 might have left contribs without default values.
+   *
+   * @return TRUE on success
+   * @throws Exception
+   *
+   */
+  public function upgrade_5000() {
+    $this->ctx->log->info('Applying update 5000');
+    CRM_Giftaid::singleton()->createDefaultsWhereMissing();
+    return TRUE;
+  }
 
   /**
    * Example: Run an external SQL script.
