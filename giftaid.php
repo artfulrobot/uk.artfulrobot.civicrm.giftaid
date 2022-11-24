@@ -12,17 +12,6 @@ function giftaid_civicrm_config(&$config) {
 }
 
 /**
- * Implements hook_civicrm_xmlMenu().
- *
- * @param array $files
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_xmlMenu
- */
-function giftaid_civicrm_xmlMenu(&$files) {
-  _giftaid_civix_civicrm_xmlMenu($files);
-}
-
-/**
  * Implements hook_civicrm_install().
  *
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_install
@@ -109,6 +98,21 @@ function giftaid_civicrm_install() {
     'text_length' => "30",
   ]);
 
+  // ... Now add a field to check the integrity, see #1, #2
+  // This is <contributionID>-<receive-date>-<amount>
+  $integrity = $api_get_or_create('CustomField', [
+    'name' => "ar_giftaid_contribution_integrity",
+    'custom_group_id' => $contribution_custom_group['id'],
+  ],
+  [
+    'label' => 'Integrity check',
+    'data_type' => "String",
+    'html_type' => "Text",
+    'is_required' => "0",
+    'is_searchable' => "1",
+    'default_value' => "",
+    'text_length' => "40",
+  ]);
 }
 
 /**
@@ -152,56 +156,6 @@ function giftaid_civicrm_disable() {
  */
 function giftaid_civicrm_upgrade($op, CRM_Queue_Queue $queue = NULL) {
   return _giftaid_civix_civicrm_upgrade($op, $queue);
-}
-
-/**
- * Implements hook_civicrm_managed().
- *
- * Generate a list of entities to create/deactivate/delete when this module
- * is installed, disabled, uninstalled.
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_managed
- */
-function giftaid_civicrm_managed(&$entities) {
-  _giftaid_civix_civicrm_managed($entities);
-}
-
-/**
- * Implements hook_civicrm_caseTypes().
- *
- * Generate a list of case-types.
- *
- * @param array $caseTypes
- *
- * Note: This hook only runs in CiviCRM 4.4+.
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_caseTypes
- */
-function giftaid_civicrm_caseTypes(&$caseTypes) {
-  _giftaid_civix_civicrm_caseTypes($caseTypes);
-}
-
-/**
- * Implements hook_civicrm_angularModules().
- *
- * Generate a list of Angular modules.
- *
- * Note: This hook only runs in CiviCRM 4.5+. It may
- * use features only available in v4.6+.
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_caseTypes
- */
-function giftaid_civicrm_angularModules(&$angularModules) {
-_giftaid_civix_civicrm_angularModules($angularModules);
-}
-
-/**
- * Implements hook_civicrm_alterSettingsFolders().
- *
- * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_alterSettingsFolders
- */
-function giftaid_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
-  _giftaid_civix_civicrm_alterSettingsFolders($metaDataFolders);
 }
 
 /**
@@ -267,4 +221,22 @@ function giftaid_civicrm_apiWrappers(&$wrappers, $apiRequest) {
   if ($apiRequest['entity'] === 'Contribution' && $apiRequest['action'] === 'create') {
     $wrappers[] = new CRM_Giftaid_ApiWrapperContributionCreate();
   }
+}
+
+/**
+ * Implements hook_civicrm_postInstall().
+ *
+ * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_postInstall
+ */
+function giftaid_civicrm_postInstall() {
+  _giftaid_civix_civicrm_postInstall();
+}
+
+/**
+ * Implements hook_civicrm_entityTypes().
+ *
+ * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_entityTypes
+ */
+function giftaid_civicrm_entityTypes(&$entityTypes) {
+  _giftaid_civix_civicrm_entityTypes($entityTypes);
 }
