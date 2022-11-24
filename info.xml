@@ -18,9 +18,9 @@
   <version>1.5.1</version>
   <develStage>stable</develStage>
   <compatibility>
-    <ver>5.36<ver>
+    <ver>5.36</ver>
   </compatibility>
-  <comments/>
+  <comments />
   <civix>
     <namespace>CRM/Giftaid</namespace>
   </civix>
