@@ -1,1 +1,3 @@
 *.swp
+
+.phpunit.result.cache

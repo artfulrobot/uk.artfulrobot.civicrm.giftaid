@@ -40,6 +40,16 @@ class CRM_Giftaid {
   public $api_claimcode;
 
   /**
+   * @var string column name for the integrity field.
+   */
+  public $col_integrity;
+
+  /**
+   * @var string e.g. 'custom_13' to use in the API.
+   */
+  public $api_integrity;
+
+  /**
    * @var string table name for the contribution eligibility group.
    */
   public $table_eligibility;
@@ -79,6 +89,9 @@ class CRM_Giftaid {
       ['return' => "column_name", 'name' => "ar_giftaid_contribution_claimcode"]);
     $this->api_claimcode = preg_replace('/^.*(_\d+)$/', 'custom$1', $this->col_claimcode);
 
+    $this->col_integrity = civicrm_api3('CustomField', 'getvalue',
+      ['return' => "column_name", 'name' => "ar_giftaid_contribution_integrity"]);
+    $this->api_integrity = preg_replace('/^.*(_\d+)$/', 'custom$1', $this->col_integrity);
   }
 
   // Main tasks.
@@ -271,7 +284,7 @@ class CRM_Giftaid {
 
     // OK, we're ready to output the data. Now's a good time to update the claim.
     // Use timestamp as a claim code.
-    $claim_code = date('Y-m-d:H:i:s');
+    $claim_code = date('Y-m-d H:i:s');
     $affected = $this->claimContributions($contributions, $claim_code);
     if ($affected) {
       CRM_Core_Session::setStatus("$affected contribution(s) updated with new claim code: $claim_code", 'Gift Aid', 'success');
@@ -592,7 +605,7 @@ class CRM_Giftaid {
    * @param string string claim_code to use.
    * @return int affected rows.
    */
-  public function claimContributions($contributions, $claim_code) {
+  public function claimContributions($contributions, string $claim_code) {
 
     // Filter for just 'unclaimed' ones.
     $to_update = [];
@@ -606,12 +619,14 @@ class CRM_Giftaid {
     }
 
     // Update. Nb. the SQL also checks to only update unclaimed codes, just in case.
-    $sql = "UPDATE $this->table_eligibility
+    $sql = "UPDATE $this->table_eligibility claims
+      INNER JOIN civicrm_contribution cn ON cn.id = claims.entity_id
       SET $this->col_claim_status = 'claimed',
-          $this->col_claimcode = '$claim_code'
+          $this->col_claimcode = %1
+          $this->col_integrity = CONCAT_WS('|', cn.id, cn.receive_date, cn.total_amount)
       WHERE entity_id IN (" . implode(',', $to_update) . ")
         AND $this->col_claim_status = 'unclaimed';";
-    $dao = CRM_Core_DAO::executeQuery( $sql, [], true, null, true );
+    $dao = CRM_Core_DAO::executeQuery( $sql, [1 => [$claim_code, 'String']], true, null, true );
 
     return $dao->N;
   }
