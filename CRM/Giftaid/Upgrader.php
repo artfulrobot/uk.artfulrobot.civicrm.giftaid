@@ -77,6 +77,13 @@ class CRM_Giftaid_Upgrader extends CRM_Giftaid_Upgrader_Base {
     return TRUE;
   }
 
+  public function upgrade_5001() {
+    $this->ctx->log->info('Applying update 5001');
+    $ga = CRM_Giftaid::singleton();
+    $ga->fixFakeClaims();
+    return TRUE;
+  }
+
   /**
    * Example: Run an external SQL script.
    *

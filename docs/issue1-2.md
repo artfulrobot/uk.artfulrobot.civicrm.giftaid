@@ -15,3 +15,4 @@ To solve this problem:
    the integrity check fails, the status is set to 'unknown'; the claim code removed.
    This should prevent problems with repeattransaction calls.
 
+3. A status report check scans the table for things that don't match.

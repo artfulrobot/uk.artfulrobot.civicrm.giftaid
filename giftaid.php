@@ -241,6 +241,16 @@ function giftaid_civicrm_entityTypes(&$entityTypes) {
   _giftaid_civix_civicrm_entityTypes($entityTypes);
 }
 
+/**
+ */
+function giftaid_civicrm_post($op, $objectName, $objectId, &$objectRef) {
+  // if ($objectName === 'Contribution' && in_array($op, ['create', 'edit'])) {
+  //   // Load the GA custom data for this contribution.
+  //   $ga = CRM_Giftaid::singleton();
+  //   $ga->checkContribution($objectId);
+  // }
+}
+
 function giftaid_civicrm_custom( $op, $groupID, $entityID, &$params ) {
   if ($op === 'create' || $op === 'edit') {
     if ($params[0]['entity_table'] ?? NULL === 'civicrm_contributions') {

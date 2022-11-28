@@ -749,7 +749,7 @@ class CRM_Giftaid {
    * If there is a claim code, and status==claimed, the integrity MUST match.
    * 
    */
-  public function getContributionsThatLackIntegrity(?int $contributionID): array {
+  public function getContributionsThatLackIntegrity(?int $contributionID = NULL): array {
     $sql = "SELECT cn.id, e.id eligibility_table_id, $this->col_claim_status claimStatus, $this->col_claimcode claimCode, $this->col_integrity claimIntegrity,
             receive_date, total_amount
             FROM civicrm_contribution cn
@@ -764,11 +764,11 @@ class CRM_Giftaid {
     return CRM_Core_DAO::executeQuery($sql)->fetchAll();
   }
 
-
   /**
    * returns mis-matched rows.
    */
   public function checkContribution(int $contributionID): void {
+    $this->lastMessage = '';
     $lacking = $this->getContributionsThatLackIntegrity($contributionID)[0] ?? NULL;
     if (!$lacking) {
       // echo "checkContribution called for $contributionID - OK apparently\n";
@@ -782,14 +782,13 @@ class CRM_Giftaid {
       '%3' => CRM_Core_DAO::escapeString($lacking['claimIntegrity']),
     ]);
     // Uh-oh, we have a problem.
-    $message = "giftaid integrity problem on Contribution $lacking[id]\n";
+    $message = "Correcting giftaid claim data on Contribution $lacking[id]. This is normal when the contribution has been created via repeattransaction.\n";
     $message .= "  Expect: $lacking[id]|$lacking[receive_date]|$lacking[total_amount]\n";
     $message .= "  Found : $lacking[claimIntegrity]\n";
     $message .= "  Resetting claim status: $lacking[claimStatus] to 'unknown', code: $lacking[claimCode] to empty\n";
     $message .= "  giftaidRevertSQL: $revertSQL\n";
 
-    Civi::log()->warning($message);
-    // For tests' sake only.
+    Civi::log()->notice($message);
     $this->lastMessage = $message;
 
     CRM_Core_DAO::executeQuery(<<<SQL
@@ -799,6 +798,23 @@ class CRM_Giftaid {
           $this->col_integrity = ''
       WHERE id = $lacking[eligibility_table_id];
       SQL);
+  }
+
+  public function fixFakeClaims() {
+    // First, identify rows that may be showing as claimed, but are not.
+    $bad = CRM_Core_DAO::executeQuery(<<<SQL
+      SELECT cn.id, cn.contact_id, cn.receive_date, cn.total_amount,
+        claims.id claim_id, claims.$this->col_claimcode claim_claimcode, claims.$this->col_claim_status claim_status, claims.$this->col_integrity claim_integrity
+      FROM $this->table_eligibility claims
+      INNER JOIN civicrm_contribution cn ON cn.id = claims.entity_id
+      WHERE claims.$this->col_claimcode REGEXP '^20[12]\d-\d\d-\d\d'
+      AND claims.$this->col_claim_status = 'claimed'
+      AND SUBSTRING(cn.receive_date, 1, 10) > SUBSTRING($this->col_claimcode, 1, 10) 
+      ORDER BY cn.contact_id, receive_date
+    SQL)->fetchAll();
+
+    print "Found " . count($bad) . " dodgy looking records.";
+    
   }
 
 }
