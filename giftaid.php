@@ -18,102 +18,8 @@ function giftaid_civicrm_config(&$config) {
  */
 function giftaid_civicrm_install() {
   _giftaid_civix_civicrm_install();
-
-  /**
-   * Helper function for creating data structures.
-   *
-   * @param string $entity - name of the API entity.
-   * @param Array $params_min parameters to use for search.
-   * @param Array $params_extra these plus $params_min are used if a create call
-   *              is needed.
-   */
-  $api_get_or_create = function ($entity, $params_min, $params_extra) {
-    $params_min += ['sequential' => 1];
-    $result = civicrm_api3($entity, 'get', $params_min);
-    if (!$result['count']) {
-      // Couldn't find it, create it now.
-      $result = civicrm_api3($entity, 'create', $params_extra + $params_min);
-    }
-    return $result['values'][0];
-  };
-
-  // We need a Gift Aid declaration activity type
-  $activity_type = $api_get_or_create('OptionValue', [
-    'option_group_id' => "activity_type",
-    'name' => "ar_giftaid_declaration",
-  ],
-  [ 'label' => 'Gift Aid Declaration']);
-
-  // Ensure we have the custom field group we need for contributions.
-  $contribution_custom_group = $api_get_or_create('CustomGroup', [
-    'name' => "ar_giftaid_contribution",
-    'extends' => "Contribution",
-  ],
-  ['title' => 'Gift Aid Details']);
-
-  // Add our 'Eligibility' field.
-  // ...This is a drop-down select field, first we need to check the option
-  //    group exists, and its values.
-  $status_opts_group = $api_get_or_create('OptionGroup',
-    ['name' => 'ar_giftaid_contribution_eligibility_opts'],
-    ['title' => 'Eligibility', 'is_active' => 1]);
-  $weight = 0;
-  foreach ([
-    "unknown"    => "Unknown",
-    "ineligible" => "NOT eligible for Gift Aid",
-    "unclaimed"  => "Eligible but not yet claimed",
-    "claimed"    => "Eligible and has been claimed",
-  ] as $name => $label) {
-    $api_get_or_create('OptionValue',
-      [ 'option_group_id' => "ar_giftaid_contribution_eligibility_opts", 'name' => $name, ],
-      [ 'label' => $label, 'value' => $name, 'weight' => $weight++ ]);
-  }
-
-  // ... Now we can add the Eligibility field to the custom group for contributions.
-  $eligibility = $api_get_or_create('CustomField', [
-    'name' => "ar_giftaid_contribution_status",
-    'custom_group_id' => $contribution_custom_group['id'],
-    'data_type' => "String",
-    'html_type' => "Select",
-    'is_required' => "1",
-    'is_searchable' => "1",
-    'default_value' => "unknown",
-    'text_length' => "30",
-    'option_group_id' => $status_opts_group['id'],
-  ],
-  ['label' => 'Eligibility']);
-
-  // ... Now add a field to group the claims.
-  $eligibility = $api_get_or_create('CustomField', [
-    'name' => "ar_giftaid_contribution_claimcode",
-    'custom_group_id' => $contribution_custom_group['id'],
-  ],
-  [
-    'label' => 'Claim Code',
-    'data_type' => "String",
-    'html_type' => "Text",
-    'is_required' => "0",
-    'is_searchable' => "1",
-    'default_value' => "",
-    'text_length' => "30",
-  ]);
-
-  // ... Now add a field to check the integrity, see #1, #2
-  // This is <contributionID>-<receive-date>-<amount>
-  $integrity = $api_get_or_create('CustomField', [
-    'name' => "ar_giftaid_contribution_integrity",
-    'custom_group_id' => $contribution_custom_group['id'],
-  ],
-  [
-    'label' => 'Integrity check',
-    'data_type' => "String",
-    'html_type' => "Text",
-    'is_required' => "0",
-    'is_searchable' => "1",
-    'default_value' => "",
-    'text_length' => "40",
-  ]);
 }
+
 
 /**
  * Implements hook_civicrm_uninstall().
@@ -261,3 +167,50 @@ function giftaid_civicrm_custom( $op, $groupID, $entityID, &$params ) {
   }
 }
 
+/**
+ * Implementation of hook_civicrm_check
+ *
+ * Add a check to the status page/System.check results if $snafu is TRUE.
+ */
+function giftaid_civicrm_check(&$messages, $statusNames, $includeDisabled) {
+
+  // Early return if $statusNames doesn't call for our check
+  if ($statusNames && !in_array('giftaidIntegrityCheck', $statusNames)) {
+    return;
+  }
+
+  // If performing your check is resource-intensive, consider bypassing if disabled
+  if (!$includeDisabled) {
+    $disabled = \Civi\Api4\StatusPreference::get()
+      ->setCheckPermissions(FALSE)
+      ->addWhere('is_active', '=', FALSE)
+      ->addWhere('domain_id', '=', 'current_domain')
+      ->addWhere('name', '=', 'giftaidIntegrityCheck')
+      ->execute()->count();
+    if ($disabled) {
+      return;
+    }
+  }
+
+  $ga = CRM_Giftaid::singleton();
+  $baduns = $ga->getContributionsThatLackIntegrity();
+  if ($baduns) {
+    $contacts = [];
+    foreach ($baduns as $contact) {
+      $contacts[$contact['contact_id']] = TRUE;
+    }
+
+    Civi::log()->warning("giftaid: " . count($baduns) . " (" . count($contacts) . " contacts) are failing integrity checks. First record:\n" . json_encode($baduns[0], JSON_PRETTY_PRINT));
+
+    $messages[] = new CRM_Utils_Check_Message(
+      'giftaidIntegrityCheck',
+      ts('Gift aid data integrity check problems'),
+      ts('There are %1 contributions (%2 distinct contacts) that are failing integrity checks. This should not happen, and needs investigation.', [
+        1 => count($baduns),
+        2 => count($contacts)
+      ]),
+      \Psr\Log\LogLevel::ERROR,
+      'fa-flag'
+    );
+  }
+}

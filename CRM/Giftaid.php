@@ -751,7 +751,7 @@ class CRM_Giftaid {
    */
   public function getContributionsThatLackIntegrity(?int $contributionID = NULL): array {
     $sql = "SELECT cn.id, e.id eligibility_table_id, $this->col_claim_status claimStatus, $this->col_claimcode claimCode, $this->col_integrity claimIntegrity,
-            receive_date, total_amount
+            receive_date, total_amount, cn.contact_id
             FROM civicrm_contribution cn
             INNER JOIN $this->table_eligibility e ON e.entity_id = cn.id
             WHERE COALESCE($this->col_claimcode, '') <> ''
@@ -800,21 +800,67 @@ class CRM_Giftaid {
       SQL);
   }
 
+  /**
+   * This fixes the problem where contributions look to have been included in a previous claim,
+   * but can't have been as their receive_date was after the claim was made.
+   *
+   * It should result in more claimable contributions.
+   */
   public function fixFakeClaims() {
-    // First, identify rows that may be showing as claimed, but are not.
-    $bad = CRM_Core_DAO::executeQuery(<<<SQL
+
+    $runat = date('YmdHis');
+    // This is a one-off operation. Note that if you were to run it twice in the same second, no rows would be added to the backup table.
+    CRM_Core_DAO::executeQuery(<<<SQL
+      CREATE TABLE IF NOT EXISTS giftaid_backup_$runat
       SELECT cn.id, cn.contact_id, cn.receive_date, cn.total_amount,
         claims.id claim_id, claims.$this->col_claimcode claim_claimcode, claims.$this->col_claim_status claim_status, claims.$this->col_integrity claim_integrity
       FROM $this->table_eligibility claims
       INNER JOIN civicrm_contribution cn ON cn.id = claims.entity_id
-      WHERE claims.$this->col_claimcode REGEXP '^20[12]\d-\d\d-\d\d'
+      WHERE claims.$this->col_claimcode REGEXP '^20[12]\\\d-\\\d\\\d-\\\d\\\d'
       AND claims.$this->col_claim_status = 'claimed'
       AND SUBSTRING(cn.receive_date, 1, 10) > SUBSTRING($this->col_claimcode, 1, 10) 
       ORDER BY cn.contact_id, receive_date
-    SQL)->fetchAll();
+      SQL)->execute();
+    $affected = CRM_Core_DAO::singleValueQuery("SELECT COUNT(*) FROM giftaid_backup_$runat");
 
-    print "Found " . count($bad) . " dodgy looking records.";
-    
+    if ($affected) {
+      $sql = <<<SQL
+        UPDATE $this->table_eligibility claims
+        INNER JOIN civicrm_contribution cn ON cn.id = claims.entity_id
+        SET claims.$this->col_claim_status = 'unknown',
+        claims.$this->col_claimcode = '',
+        claims.$this->col_integrity = ''
+        WHERE claims.$this->col_claimcode REGEXP '^20[12]\\\d-\\\d\\\d-\\\d\\\d'
+        AND claims.$this->col_claim_status = 'claimed'
+        AND SUBSTRING(cn.receive_date, 1, 10) > SUBSTRING($this->col_claimcode, 1, 10) 
+        SQL;
+      Civi::log()->warning("giftaid: Found $affected contributions whose receive_date is after the claim date. Copies of the original data from $this->table_eligibility have been made in giftaid_backup_$runat. Fixing these with $sql");
+      $dao = CRM_Core_DAO::executeQuery($sql);
+      Civi::log()->warning("giftaid: Fixed " . $dao->affectedRows() . " rows");
+    }
+    else {
+      CRM_Core_DAO::executeQuery("DROP TABLE giftaid_backup_$runat");
+      Civi::log()->info("giftaid: Found 0 contributions whose receive_date is after the claim date. Nice.");
+    }
+  }
+
+  /**
+   * retroactively add the 'integrity' check data. This is normally populated at the time of making a claim by $this->claimContributions
+   */
+  public function addIntegrityCheckToExistingClaims() {
+
+    $sql = <<<SQL
+      UPDATE $this->table_eligibility claims
+      INNER JOIN civicrm_contribution cn ON cn.id = claims.entity_id
+      SET claims.$this->col_integrity = CONCAT_WS('|', cn.id, cn.receive_date, cn.total_amount)
+      WHERE COALESCE(claims.$this->col_integrity, '') = ''
+      AND claims.$this->col_claim_status = 'claimed'
+      SQL;
+    $dao = CRM_Core_DAO::executeQuery($sql);
+    $affected = $dao->affectedRows();
+    if ($affected) {
+      Civi::log()->info("giftaid: Added integrity check to $affected rows");
+    }
   }
 
 }

@@ -16,3 +16,12 @@ To solve this problem:
    This should prevent problems with repeattransaction calls.
 
 3. A status report check scans the table for things that don't match.
+
+Upgrader steps:
+
+1. First, any claimed things where the claim code date is before the receive
+   date are change to unknown eligibility and their claim code is removed. The
+   original data is backed up to a table named `giftaid_backup_{timestamp}` 
+
+2. Then all other claims are considered OK, and an integrity value is set for each of them.
+
