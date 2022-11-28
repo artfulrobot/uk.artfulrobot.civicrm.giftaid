@@ -613,7 +613,7 @@ class CRM_GiftaidTest extends \PHPUnit\Framework\TestCase implements HeadlessInt
     $ga = CRM_Giftaid::singleton();
 
     $contribution_ids = [];
-    // Create contrib.
+    // Create unclaimed contrib.
     $result = civicrm_api3('Contribution', 'create', array(
       'financial_type_id' => "Donation",
       'total_amount' => 10,
@@ -623,15 +623,13 @@ class CRM_GiftaidTest extends \PHPUnit\Framework\TestCase implements HeadlessInt
     ));
     $this->assertEquals(0, $result['is_error']);
     $contribution_ids[] = $result['id'];
-    $result = civicrm_api3('Contribution', 'create', array(
+    // Create claimed contrib. We must create the contrib first, then create the custom data
+    $result = $this->createClaimedContribution([
       'financial_type_id' => "Donation",
       'total_amount' => 12,
       'contact_id' => $this->test_contact_id,
-      $ga->api_claim_status => 'claimed',
-      $ga->api_claimcode => 'old',
       'receive_date' => '2016-01-02',
-    ));
-    $this->assertEquals(0, $result['is_error']);
+    ], '2016-01-02 09:00:00');
     $contribution_ids[] = $result['id'];
 
     $contributions = $ga->getContributions($contribution_ids);
@@ -646,7 +644,7 @@ class CRM_GiftaidTest extends \PHPUnit\Framework\TestCase implements HeadlessInt
     $this->assertEquals('claimed', $result['values'][$contribution_ids[0]][$ga->api_claim_status]);
     $this->assertEquals($claim_code, $result['values'][$contribution_ids[0]][$ga->api_claimcode]);
     $this->assertEquals('claimed', $result['values'][$contribution_ids[1]][$ga->api_claim_status]);
-    $this->assertEquals('old', $result['values'][$contribution_ids[1]][$ga->api_claimcode]);
+    $this->assertEquals('2016-01-02 09:00:00', $result['values'][$contribution_ids[1]][$ga->api_claimcode]);
   }
   /**
    * Create a contribution that has been claimed and belongs to a recurring
@@ -677,21 +675,18 @@ class CRM_GiftaidTest extends \PHPUnit\Framework\TestCase implements HeadlessInt
       [ 'id' => $contrib_recur['id'] ]);
 
     // Create contrib that has been clamied.
-    $contribution_1 = civicrm_api3('Contribution', 'create', [
+    $contribution_1 = $this->createClaimedContribution([
       'contribution_recur_id'  => $contrib_recur['id'],
       'financial_type_id'      => "Donation",
       'total_amount'           => 10,
       'contact_id'             => $this->test_contact_id,
       'trxn_id'                => 'contrib1',
       'contribution_status_id' => 'Completed',
-      $ga->api_claim_status    => 'claimed',
-      $ga->api_claimcode       => 'claim1',
       'receive_date'           => '2020-01-01',
-    ]);
-    $this->assertEquals(0, $contribution_1['is_error']);
-    $contribution_1 = civicrm_api3('Contribution', 'getsingle', ['id' => $contribution_1['id']]);
+    ], 'claim1');
 
-    // Duplicate
+    // Duplicate with repeattransaction
+    $ga->lastMessage = '';
     $contribution_2 = civicrm_api3('Contribution', 'repeattransaction', [
       'contribution_recur_id'  => $contrib_recur['id'],
       'contribution_status_id' => 'Completed',
@@ -700,6 +695,9 @@ class CRM_GiftaidTest extends \PHPUnit\Framework\TestCase implements HeadlessInt
       'receive_date'           => '2020-01-02',
       'total_amount'           => 10,
     ]);
+    // We expect this to trigger the hook_civicrm_custom which should spot that the
+    // old GA claim stuff has been wrongly copied, and reset it.
+    $this->assertStringContainsString("Resetting claim status", $ga->lastMessage);
 
     // Reload contrib 2
     $contribution_2 = civicrm_api3('Contribution', 'getsingle', [ 'id' => $contribution_2['id'] ]);
@@ -733,10 +731,7 @@ class CRM_GiftaidTest extends \PHPUnit\Framework\TestCase implements HeadlessInt
     // First, assert that we have not broken anything.
     // Create contrib that has values for the custom data, check it's saved as it normally is.
     //
-    $contribution = civicrm_api3('Contribution', 'create', $commonParams + [
-      $ga->api_claimcode       => 'test123',
-      $ga->api_claim_status    => 'claimed',
-    ]);
+    $contribution = $this->createClaimedContribution($commonParams, 'test123');
     $contribution = civicrm_api3('Contribution', 'getsingle', ['id' => $contribution['id'], 'return' => ['id', $ga->api_claim_status, $ga->api_claimcode]]);
     $this->assertArrayHasKey($ga->api_claim_status, $contribution);
     $this->assertEquals('claimed', $contribution[$ga->api_claim_status] ?? '(null/missing)');
@@ -776,7 +771,6 @@ class CRM_GiftaidTest extends \PHPUnit\Framework\TestCase implements HeadlessInt
     $this->assertArrayHasKey($ga->api_claim_status, $contribution);
     $this->assertEquals('unknown', $contribution[$ga->api_claim_status] ?? '(null/missing)');
     $this->assertEquals('test123', $contribution[$ga->api_claimcode] ?? '');
-
   }
 
   /**
@@ -822,5 +816,31 @@ class CRM_GiftaidTest extends \PHPUnit\Framework\TestCase implements HeadlessInt
     $this->assertArrayHasKey($ga->api_claim_status, $contribution_1);
     $this->assertEquals('unknown', $contribution_1[$ga->api_claim_status] ?? '(null/missing)');
     $this->assertEquals('', $contribution_1[$ga->api_claimcode] ?? '');
+  }
+
+  protected function createClaimedContribution(array $contribCreateParams, string $claimCode) {
+    $contrib = civicrm_api3('Contribution', 'create', $contribCreateParams); 
+    $this->assertEquals(0, $contrib['is_error']);
+
+    $ga = CRM_Giftaid::singleton();
+    $sql = <<<SQL
+      UPDATE $ga->table_eligibility claims
+      INNER JOIN civicrm_contribution cn ON cn.id = claims.entity_id
+      SET $ga->col_claim_status = 'claimed',
+          $ga->col_claimcode = %1,
+          $ga->col_integrity = CONCAT_WS('|', cn.id, cn.receive_date, cn.total_amount)
+      WHERE entity_id = $contrib[id]
+      SQL;
+    CRM_Core_DAO::executeQuery( $sql, [1 => [$claimCode, 'String']], true, null, true );
+    $get = civicrm_api3('Contribution', 'getsingle', ['id' => $contrib['id'], 'return' => [
+      'id',
+      'total_amount', 
+      'receive_date',
+      $ga->api_claim_status,
+      $ga->api_claimcode,
+      $ga->api_integrity,
+    ]]);
+    // print "Returning\n" . json_encode($get) . "\n";
+    return $get;
   }
 }

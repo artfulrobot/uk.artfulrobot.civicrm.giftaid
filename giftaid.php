@@ -240,3 +240,14 @@ function giftaid_civicrm_postInstall() {
 function giftaid_civicrm_entityTypes(&$entityTypes) {
   _giftaid_civix_civicrm_entityTypes($entityTypes);
 }
+
+function giftaid_civicrm_custom( $op, $groupID, $entityID, &$params ) {
+  if ($op === 'create' || $op === 'edit') {
+    if ($params[0]['entity_table'] ?? NULL === 'civicrm_contributions') {
+      // Looks likely.
+      // echo "$op $groupID $entityID " . json_encode($params, JSON_PRETTY_PRINT) . "\n";
+      CRM_Giftaid::singleton()->checkContribution($entityID);
+    }
+  }
+}
+

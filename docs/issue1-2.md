@@ -11,3 +11,7 @@ To solve this problem:
    not match the start of the integrity column, something is up. The amount, date
    are softer assertions really.
 
+2. A `hook_civicrm_custom` fires on writing a contribution's custom data. If
+   the integrity check fails, the status is set to 'unknown'; the claim code removed.
+   This should prevent problems with repeattransaction calls.
+

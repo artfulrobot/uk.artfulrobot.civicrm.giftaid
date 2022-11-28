@@ -58,6 +58,12 @@ class CRM_Giftaid {
    * Array of valid statuses.
    */
   public static $eligibility_statuses = [ 'unknown', 'unclaimed', 'claimed', 'ineligible' ];
+
+  /**
+   * For unit tests only
+   */
+  public $lastMessage = '';
+
   /**
    * Singleton pattern.
    */
@@ -622,10 +628,11 @@ class CRM_Giftaid {
     $sql = "UPDATE $this->table_eligibility claims
       INNER JOIN civicrm_contribution cn ON cn.id = claims.entity_id
       SET $this->col_claim_status = 'claimed',
-          $this->col_claimcode = %1
+          $this->col_claimcode = %1,
           $this->col_integrity = CONCAT_WS('|', cn.id, cn.receive_date, cn.total_amount)
       WHERE entity_id IN (" . implode(',', $to_update) . ")
-        AND $this->col_claim_status = 'unclaimed';";
+        AND $this->col_claim_status = 'unclaimed'";
+
     $dao = CRM_Core_DAO::executeQuery( $sql, [1 => [$claim_code, 'String']], true, null, true );
 
     return $dao->N;
@@ -734,6 +741,64 @@ class CRM_Giftaid {
     }
 
     return $output;
+  }
+
+  /**
+   * returns mis-matched rows.
+   *
+   * If there is a claim code, and status==claimed, the integrity MUST match.
+   * 
+   */
+  public function getContributionsThatLackIntegrity(?int $contributionID): array {
+    $sql = "SELECT cn.id, e.id eligibility_table_id, $this->col_claim_status claimStatus, $this->col_claimcode claimCode, $this->col_integrity claimIntegrity,
+            receive_date, total_amount
+            FROM civicrm_contribution cn
+            INNER JOIN $this->table_eligibility e ON e.entity_id = cn.id
+            WHERE COALESCE($this->col_claimcode, '') <> ''
+            AND COALESCE($this->col_claim_status, '') = 'claimed'
+            AND COALESCE($this->col_integrity, '') != CONCAT_WS('|', cn.id, cn.receive_date, cn.total_amount)
+    ";
+    if ($contributionID) {
+      $sql .= " AND cn.id = $contributionID";
+    }
+    return CRM_Core_DAO::executeQuery($sql)->fetchAll();
+  }
+
+
+  /**
+   * returns mis-matched rows.
+   */
+  public function checkContribution(int $contributionID): void {
+    $lacking = $this->getContributionsThatLackIntegrity($contributionID)[0] ?? NULL;
+    if (!$lacking) {
+      // echo "checkContribution called for $contributionID - OK apparently\n";
+      return;
+    }
+
+    $revertSQL = "UPDATE $this->table_eligibility SET $this->col_claim_status = '%1', $this->col_claimcode = '%2', $this->col_integrity = '%3' WHERE id = $lacking[eligibility_table_id];";
+    $revertSQL = strtr($revertSQL, [
+      '%1' => CRM_Core_DAO::escapeString($lacking['claimStatus']),
+      '%2' => CRM_Core_DAO::escapeString($lacking['claimCode']),
+      '%3' => CRM_Core_DAO::escapeString($lacking['claimIntegrity']),
+    ]);
+    // Uh-oh, we have a problem.
+    $message = "giftaid integrity problem on Contribution $lacking[id]\n";
+    $message .= "  Expect: $lacking[id]|$lacking[receive_date]|$lacking[total_amount]\n";
+    $message .= "  Found : $lacking[claimIntegrity]\n";
+    $message .= "  Resetting claim status: $lacking[claimStatus] to 'unknown', code: $lacking[claimCode] to empty\n";
+    $message .= "  giftaidRevertSQL: $revertSQL\n";
+
+    Civi::log()->warning($message);
+    // For tests' sake only.
+    $this->lastMessage = $message;
+
+    CRM_Core_DAO::executeQuery(<<<SQL
+      UPDATE $this->table_eligibility
+      SET $this->col_claim_status = 'unknown',
+          $this->col_claimcode = '',
+          $this->col_integrity = ''
+      WHERE id = $lacking[eligibility_table_id];
+      SQL);
   }
 
 }
