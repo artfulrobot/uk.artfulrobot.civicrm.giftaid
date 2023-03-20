@@ -222,7 +222,7 @@ class CRM_Giftaid {
     $list = $this->integerArrayToString($contribution_ids);
 
     // Find unique contacts, and the last declaration from them.
-    // These unknown eligibility contributions are eligible, unclaimed.
+    // These "unknown eligibility" contributions are "eligible, unclaimed".
     $sql = "UPDATE $this->table_eligibility el
         INNER JOIN civicrm_contribution co ON el.entity_id = co.id
         INNER JOIN civicrm_contact c ON co.contact_id = c.id AND c.is_deleted = 0 AND c.is_deceased = 0
@@ -235,7 +235,7 @@ class CRM_Giftaid {
       SET el.$this->col_claim_status = IF(a.subject = 'Eligible',  'unclaimed', 'ineligible')
 
       WHERE co.id IN ($list) AND el.$this->col_claim_status = 'unknown'
-        AND co.receive_date >= a.activity_date_time
+        AND co.receive_date >= DATE(a.activity_date_time)
         AND NOT EXISTS (
             SELECT ac2.id FROM civicrm_activity_contact ac2
               INNER JOIN civicrm_activity a2 ON a2.id = ac2.activity_id
@@ -244,7 +244,8 @@ class CRM_Giftaid {
             WHERE ac2.contact_id = c.id
               AND a2.is_deleted = 0
               AND a2.activity_date_time >= a.activity_date_time
-              AND a2.activity_date_time <= co.receive_date
+              AND DATE(a2.activity_date_time) <= co.receive_date
+
               AND a2.subject != a.subject
               AND a2.id != a.id
         )
@@ -747,7 +748,7 @@ class CRM_Giftaid {
    * returns mis-matched rows.
    *
    * If there is a claim code, and status==claimed, the integrity MUST match.
-   * 
+   *
    */
   public function getContributionsThatLackIntegrity(?int $contributionID = NULL): array {
     $sql = "SELECT cn.id, e.id eligibility_table_id, $this->col_claim_status claimStatus, $this->col_claimcode claimCode, $this->col_integrity claimIntegrity,
@@ -818,7 +819,7 @@ class CRM_Giftaid {
       INNER JOIN civicrm_contribution cn ON cn.id = claims.entity_id
       WHERE claims.$this->col_claimcode REGEXP '^20[12]\\\d-\\\d\\\d-\\\d\\\d'
       AND claims.$this->col_claim_status = 'claimed'
-      AND SUBSTRING(cn.receive_date, 1, 10) > SUBSTRING($this->col_claimcode, 1, 10) 
+      AND SUBSTRING(cn.receive_date, 1, 10) > SUBSTRING($this->col_claimcode, 1, 10)
       ORDER BY cn.contact_id, receive_date
       SQL)->execute();
     $affected = CRM_Core_DAO::singleValueQuery("SELECT COUNT(*) FROM giftaid_backup_$runat");
@@ -832,7 +833,7 @@ class CRM_Giftaid {
         claims.$this->col_integrity = ''
         WHERE claims.$this->col_claimcode REGEXP '^20[12]\\\d-\\\d\\\d-\\\d\\\d'
         AND claims.$this->col_claim_status = 'claimed'
-        AND SUBSTRING(cn.receive_date, 1, 10) > SUBSTRING($this->col_claimcode, 1, 10) 
+        AND SUBSTRING(cn.receive_date, 1, 10) > SUBSTRING($this->col_claimcode, 1, 10)
         SQL;
       Civi::log()->warning("giftaid: Found $affected contributions whose receive_date is after the claim date. Copies of the original data from $this->table_eligibility have been made in giftaid_backup_$runat. Fixing these with $sql");
       $dao = CRM_Core_DAO::executeQuery($sql);
