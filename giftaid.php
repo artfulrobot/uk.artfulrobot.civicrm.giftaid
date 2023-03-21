@@ -94,8 +94,6 @@ function giftaid_civicrm_apiWrappers(&$wrappers, $apiRequest) {
   }
 }
 
-}
-
 function giftaid_civicrm_custom( $op, $groupID, $entityID, &$params ) {
   if ($op === 'create' || $op === 'edit') {
     if ($params[0]['entity_table'] ?? NULL === 'civicrm_contributions') {
