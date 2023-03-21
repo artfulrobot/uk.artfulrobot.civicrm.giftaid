@@ -722,7 +722,7 @@ class CRM_Giftaid {
             'title' => $contact['formal_title'],
             'first_name' => $contact['first_name'],
             'last_name' => $contact['last_name'],
-            'street_address' => $contact['street_address'],
+            'street_address' => mb_substr($contact['street_address'], 0, 40),
             'postcode' => $contact['postal_code'],
             'aggregated_donations' => '',
             'sponsored' => '',
