@@ -3,6 +3,9 @@
  * I've tried to put most of the doing code in here so it can be tested.
  */
 class CRM_Giftaid {
+
+  public const VALID_UK_POSTCODE_REGEX = '/^(GIR 0AA)|((([A-Z][0-9][0-9]?)|(([A-Z][A-HJ-Y][0-9][0-9]?)|(([A-Z][0-9][A-Z])|([A-Z][A-HJ-Y][0-9]?[A-Z])))) [0-9][A-Z]{2})$/';
+
   /**
    * @var $singleton
    */
@@ -752,16 +755,16 @@ class CRM_Giftaid {
   /**
    * Try to coerce given user in put into a UK postcode.
    *
-   * @return FALSE|string
+   * @return string
    */
   public function castToUKPostcode($existing) {
     if (!trim($existing ?? '')) {
-      return FALSE;
+      return '';
     }
 
     // First, trim excess spaces and make it upper case.
     $value = trim(preg_replace('/ {2,}/',' ',strtoupper($existing)));
-    if (preg_match(VALID_UK_POSTCODE_REGEX, $value)) {
+    if (preg_match(static::VALID_UK_POSTCODE_REGEX, $value)) {
       // It's ok.
       return $value;
     }
@@ -771,7 +774,7 @@ class CRM_Giftaid {
     if (count($parts)>2) {
       for ($i=1;$i<count($parts);$i++) {
         $try = implode('', array_slice($parts,0,$i)) . ' ' . implode('', array_slice($parts,$i));
-        if (preg_match(VALID_UK_POSTCODE_REGEX, $try)) {
+        if (preg_match(static::VALID_UK_POSTCODE_REGEX, $try)) {
           return $try;
         }
       }
@@ -782,14 +785,15 @@ class CRM_Giftaid {
     // Now try inserting a space at every possible place until we have a match.
     for ($i=1;$i<strlen($_);$i++) {
       $try = substr($_,0,$i) . ' ' . substr($_,$i);
-      if (preg_match(VALID_UK_POSTCODE_REGEX, $try)) {
+      if (preg_match(static::VALID_UK_POSTCODE_REGEX, $try)) {
         return $try;
       }
     }
 
     // Postcode did not match.
-    return FALSE;
+    return $existing;
   }
+
   // Unused code. remove it.
   /**
    * Group array by gift aid status.
