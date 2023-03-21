@@ -23,6 +23,14 @@
   <comments/>
   <civix>
     <namespace>CRM/Giftaid</namespace>
-    <format>22.05.2</format>
+    <format>23.02.1</format>
   </civix>
+  <classloader>
+    <psr0 prefix="CRM_" path="."/>
+    <psr4 prefix="Civi\" path="Civi"/>
+  </classloader>
+  <upgrader>CRM_Giftaid_Upgrader</upgrader>
+  <mixins>
+    <mixin>smarty-v2@1.0.1</mixin>
+  </mixins>
 </extension>
