@@ -206,6 +206,32 @@ class CRM_Giftaid {
   }
 
   /**
+   * Create a group for the unclaimed_missing_data contacts and return the groupID.
+   *
+   * If there are none, do nothing and return 0.
+   */
+  public function exportMissingDataContactsToGroup($contribution_ids): int {
+    $data = $this->summariseContributions($contribution_ids);
+
+    if (empty($data['unclaimed_missing_data']['contacts'])) {
+      return 0;
+    }
+    $contactsIDs = array_keys($data['unclaimed_missing_data']['contacts']);
+
+    $groupID = \Civi\Api4\Group::create()
+    ->addValue('name', 'giftaid_unclaimed_missing_data' . date('YmdHis'))
+    ->addValue('title', "Unclaimable GiftAid contributions")
+    ->addValue('description', 'These contacts had GiftAid declarations and contribution(s) over £20 that could not be claimed due to missing name/address data. This is a static, temporary group and should be deleted once you are finished.')
+    ->addValue('source', 'giftaid extension')
+    ->addValue('created_id', 'user_contact_id')
+    ->execute()->first()['id'];
+
+    CRM_Contact_BAO_GroupContact::addContactsToGroup($contactsIDs, $groupID, 'GiftAid', 'Added');
+
+    return $groupID;
+  }
+
+  /**
    * Change 'unknown' eligibility to 'unclaimed' or 'ineligible' based on declaration activities.
    *
    * This gets fairly complicated, see tests for expectations.

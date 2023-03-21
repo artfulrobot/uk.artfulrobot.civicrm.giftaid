@@ -139,6 +139,24 @@ class CRM_Giftaid_Form_Task_Manage extends CRM_Contribute_Form_Task {
         CRM_Giftaid::singleton()->determineEligibility($this->_contributionIds);
         CRM_Core_Session::setStatus("Contributions updated.", 'Gift Aid', 'success');
       }
+      elseif ($values['_qf_Manage_submit'] == 'group_missing_data') {
+        // Create a group of contacts who do not have data.
+        $ga = CRM_Giftaid::singleton();
+        $groupID = $ga->exportMissingDataContactsToGroup($this->_contributionIds);
+        if (!$groupID) {
+          CRM_Core_Session::setStatus("Nothing to do", 'Gift Aid', 'success');
+        }
+        else {
+          // Redirect to group contacts list.
+          $url = CRM_Utils_System::url('civicrm/group/search', [
+            'reset'  => 1,
+            'force'  => 1,
+            'gid'    => $groupID,
+            'action' => 'view',
+          ]);
+          CRM_Utils_System::redirect($url);
+        }
+      }
       elseif ($values['_qf_Manage_submit'] == 'regenerate_claimed') {
         // Like Create a claim but it won't update anything.
 

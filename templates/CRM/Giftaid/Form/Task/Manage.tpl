@@ -42,6 +42,9 @@
       address data and because they are greater than &pound;20, they cannot be
       claimed as part of an aggregate line. So these will remain unclaimable
       until you find the person's details.</p>
+        <p>
+          <button name="_qf_Manage_submit" class="crm-form-submit" value="group_missing_data" >Create a group of these contacts</button>
+        </p>
       </td>
     </tr>
     {/if}

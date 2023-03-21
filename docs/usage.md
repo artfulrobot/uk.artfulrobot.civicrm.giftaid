@@ -109,6 +109,12 @@ From this screen you can get key stats on your next claim:
   If you're happy that this is legit' you can check that checkbox to include
   these aggregated contributions too.
 
+- "Unclaimable". These contributions belong to contacts with missing name
+  and/or address data and because they are greater than £20, they cannot be
+  claimed as part of an aggregate line. So these will remain unclaimable until
+  you find the person's details. You can create a group of these contacts
+  if you want to look into them.
+
 At the bottom you'll see a **Create Claim** button. Click that will produce a
 spreadsheet that you can copy and paste into the Inland Revenue's claim
 template spreadsheet. **You MUST save that spreadsheet for your records**.
