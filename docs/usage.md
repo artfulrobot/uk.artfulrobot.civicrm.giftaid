@@ -133,12 +133,9 @@ marked "Eligible, not yet claimed". So if you click it having searched for
 "Not eligible" contributions, you'll get an empty spreadsheet and no data will
 have been changed.
 
-The comparison of contribution and declaration is down to the second(!). So it's
-important that the declaration proceeds the contribution; a declaration
-recorded later in the day than the contribution won't make that contribution
-eligible. This is a bit silly really, and is just because it would take more
-code to round to the day. But it potentially has its uses working this way, so
-that's how it is for now.
+Declarations given at any time on one day are assumed to apply to the whole of
+that day. This extension used to do a per-second comparison, but this led to
+problems.
 
 The only data that is changed by the "Gift Aid Administration" process is the
 two Gift Aid fields (claim code and eligibility) on those contributions. So if
