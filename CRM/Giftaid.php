@@ -682,7 +682,6 @@ class CRM_Giftaid {
    */
   public function generateHMRCRows($contributions, $contact_data, $include_aggregates) {
     $lines = [];
-    $aggregates = [];
 
     foreach ($contributions as $contribution) {
       $date = substr($contribution['receive_date'], 0, 10); // Y-m-d
@@ -723,7 +722,7 @@ class CRM_Giftaid {
             'first_name' => $contact['first_name'],
             'last_name' => $contact['last_name'],
             'street_address' => mb_substr($contact['street_address'], 0, 40),
-            'postcode' => $contact['postal_code'],
+            'postcode' => $this->castToUKPostcode($contact['postal_code']) ?: '',
             'aggregated_donations' => '',
             'sponsored' => '',
             'date' => $date,
@@ -748,6 +747,48 @@ class CRM_Giftaid {
     // Sort by key.
     ksort($lines);
     return array_values($lines);
+  }
+
+  /**
+   * Try to coerce given user in put into a UK postcode.
+   *
+   * @return FALSE|string
+   */
+  public function castToUKPostcode($existing) {
+    if (!trim($existing ?? '')) {
+      return FALSE;
+    }
+
+    // First, trim excess spaces and make it upper case.
+    $value = trim(preg_replace('/ {2,}/',' ',strtoupper($existing)));
+    if (preg_match(VALID_UK_POSTCODE_REGEX, $value)) {
+      // It's ok.
+      return $value;
+    }
+
+    // if the user entered multiple spaces, try to match it with every combination.
+    $parts = explode(' ', $value);
+    if (count($parts)>2) {
+      for ($i=1;$i<count($parts);$i++) {
+        $try = implode('', array_slice($parts,0,$i)) . ' ' . implode('', array_slice($parts,$i));
+        if (preg_match(VALID_UK_POSTCODE_REGEX, $try)) {
+          return $try;
+        }
+      }
+    }
+
+    // Still here. OK try removing ALL spaces.
+    $_ = implode('', $parts);
+    // Now try inserting a space at every possible place until we have a match.
+    for ($i=1;$i<strlen($_);$i++) {
+      $try = substr($_,0,$i) . ' ' . substr($_,$i);
+      if (preg_match(VALID_UK_POSTCODE_REGEX, $try)) {
+        return $try;
+      }
+    }
+
+    // Postcode did not match.
+    return FALSE;
   }
   // Unused code. remove it.
   /**
