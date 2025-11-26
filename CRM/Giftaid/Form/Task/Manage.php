@@ -9,21 +9,22 @@ require_once 'CRM/Contribute/Form/Task.php';
  * @see http://wiki.civicrm.org/confluence/display/CRMDOC43/QuickForm+Reference
  */
 class CRM_Giftaid_Form_Task_Manage extends CRM_Contribute_Form_Task {
+
   /**
    * build all the data structures needed to build the form
    *
    * @return void
    * @access public
    */
-  function preProcess()
-  {
+  public function preProcess() {
     //check for update permission
-    if ( !CRM_Core_Permission::checkActionPermission( 'CiviContribute', CRM_Core_Action::UPDATE ) ) {
-      CRM_Core_Error::fatal( ts( 'You do not have permission to access this page' ) );
+    if (!CRM_Core_Permission::checkActionPermission('CiviContribute', CRM_Core_Action::UPDATE)) {
+      throw new CRM_Core_Error(ts('You do not have permission to access this page'));
     }
     parent::preProcess();
 
   }
+
   public function buildQuickForm() {
 
     // Summarise the contributions.
@@ -49,24 +50,30 @@ class CRM_Giftaid_Form_Task_Manage extends CRM_Contribute_Form_Task {
     // Do we need to offer checkbox to include ok contribs?
     if ($summary['unclaimed_ok']['count']) {
       $this->add(
-        'advcheckbox', // type
-        'unclaimed_ok_include', // field name
+      // type
+        'advcheckbox',
+      // field name
+        'unclaimed_ok_include',
         'Include these contributions in a new claim.'
       );
     }
     // Do we need to offer checkbox to include contribs that could be aggregated?
     if ($summary['unclaimed_aggregate']['count']) {
       $this->add(
-        'advcheckbox', // type
-        'unclaimed_aggregate_include', // field name
+      // type
+        'advcheckbox',
+      // field name
+        'unclaimed_aggregate_include',
         'Include these contributions in a new claim as an aggregate.'
       );
     }
     // Do we need to offer checkbox to include ok contribs?
     if ($summary['claimed']['count']) {
       $this->add(
-        'advcheckbox', // type
-        'claimed_include', // field name
+      // type
+        'advcheckbox',
+      // field name
+        'claimed_include',
         'Re-generate claim data'
       );
     }
@@ -80,7 +87,8 @@ class CRM_Giftaid_Form_Task_Manage extends CRM_Contribute_Form_Task {
       // I added this as raw HTML in the tpl file instead.
       $this->add(
         'submit',
-        'determineEligiblity', // field name
+      // field name
+        'determineEligiblity',
         'Determine Eligibility',
         [
           'name' => '_qf_Manage_submit',
@@ -94,25 +102,7 @@ class CRM_Giftaid_Form_Task_Manage extends CRM_Contribute_Form_Task {
         'isDefault' => FALSE,
       ),
     ));
-    if (FALSE) {
-    $this->assign('nextClaimId', $this->_next_claim_id);
 
-
-    $this->addDefaultButtons(ts('Update Contributions'), 'done');
-
-    // first find next available claim code
-
-    // Find table name
-    $table_name = civicrm_api3('CustomGroup', 'getvalue', ['return' => "table_name", 'name' => "ar_giftaid_contribution"]);
-    $column_name = civicrm_api3('CustomField', 'getvalue', ['return' => "column_name", 'name' => "ar_giftaid_contribution_claimcode"]);
-    $sql = "SELECT MAX(COALESCE($column_name ,0))+1 FROM $table_name";
-    $this->_next_claim_id = (int) CRM_Core_DAO::singleValueQuery( $sql );
-    if (! $this->_next_claim_id) {
-      CRM_Core_Error::fatal( ts( 'Internal Error. How embarrassing. (Info for maintainer: Could not determine next available claim code)' ) );
-    }
-    $this->assign('nextClaimId', $this->_next_claim_id);
-
-    }
     // export form elements
     $this->assign('elementNames', $this->getRenderableElementNames());
     parent::buildQuickForm();
@@ -121,7 +111,9 @@ class CRM_Giftaid_Form_Task_Manage extends CRM_Contribute_Form_Task {
   public function postProcess() {
     // Get comma separated list of contribution ids, ensuring they're all
     // integers so there can't be any SQL injection.
-    $list = implode(',', array_filter(array_map(function($_) { return (int) $_; }, $this->_contributionIds)));
+    $list = implode(',', array_filter(array_map(function($_) {
+      return (int) $_;
+    }, $this->_contributionIds)));
     if (!$list) {
       CRM_Core_Session::setStatus(ts("Sorry, an error sprung up from out of
         nowhere and confounded me. I was expecting to be able to update some
@@ -170,14 +162,14 @@ class CRM_Giftaid_Form_Task_Manage extends CRM_Contribute_Form_Task {
         $ga_status_allowed = ['unclaimed'];
         $include_aggregates = FALSE;
         if (!empty($values['unclaimed_ok_include'])) {
-          $ga_status_allowed []= 'unclaimed';
+          $ga_status_allowed[] = 'unclaimed';
         }
         if (!empty($values['unclaimed_aggregate_include'])) {
-          $ga_status_allowed []= 'unclaimed';
+          $ga_status_allowed[] = 'unclaimed';
           $include_aggregates = TRUE;
         }
         $ga_status_allowed = array_unique($ga_status_allowed);
-        if (count($ga_status_allowed)!=1) {
+        if (count($ga_status_allowed) != 1) {
           // @todo move this to validation.
           CRM_Core_Session::setStatus("No contributions selected. Use the check-boxes.", 'Gift Aid');
         }
@@ -189,7 +181,7 @@ class CRM_Giftaid_Form_Task_Manage extends CRM_Contribute_Form_Task {
         }
       }
       else {
-        CRM_Core_Error::fatal( ts( 'Huh?' ) );
+        throw new CRM_Core_Error('Invalid form submission. This should not be possible. Code ARGA1');
       }
     }
 
@@ -217,7 +209,5 @@ class CRM_Giftaid_Form_Task_Manage extends CRM_Contribute_Form_Task {
     }
     return $elementNames;
   }
-  public function determineEligiblity() {
-    $x=1;
-  }
+
 }

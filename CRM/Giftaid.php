@@ -1,4 +1,5 @@
 <?php
+
 /**
  * I've tried to put most of the doing code in here so it can be tested.
  */
@@ -60,7 +61,7 @@ class CRM_Giftaid {
   /**
    * Array of valid statuses.
    */
-  public static $eligibility_statuses = [ 'unknown', 'unclaimed', 'claimed', 'ineligible' ];
+  public static $eligibility_statuses = ['unknown', 'unclaimed', 'claimed', 'ineligible'];
 
   /**
    * For unit tests only
@@ -69,6 +70,8 @@ class CRM_Giftaid {
 
   /**
    * Singleton pattern.
+   *
+   * @return static
    */
   public static function singleton() {
     if (!isset(static::$singleton)) {
@@ -81,25 +84,43 @@ class CRM_Giftaid {
    * Constructor. Discovers some useful ids/
    */
   public function __construct() {
-    $this->activity_target_type = (int) civicrm_api3('OptionValue', 'getvalue',
-      ['return' => "value", 'option_group_id' => "activity_contacts", 'name' => "Activity Targets"]);
+    $this->activity_target_type = (int) civicrm_api3(
+      'OptionValue',
+      'getvalue',
+      ['return' => "value", 'option_group_id' => "activity_contacts", 'name' => "Activity Targets"]
+    );
 
-    $this->table_eligibility = civicrm_api3('CustomGroup', 'getvalue',
-      ['return' => "table_name", 'name' => "ar_giftaid_contribution"]);
+    $this->table_eligibility = civicrm_api3(
+      'CustomGroup',
+      'getvalue',
+      ['return' => "table_name", 'name' => "ar_giftaid_contribution"]
+    );
 
-    $this->col_claim_status = civicrm_api3('CustomField', 'getvalue',
-      ['return' => "column_name", 'name' => "ar_giftaid_contribution_status"]);
+    $this->col_claim_status = civicrm_api3(
+      'CustomField',
+      'getvalue',
+      ['return' => "column_name", 'name' => "ar_giftaid_contribution_status"]
+    );
     $this->api_claim_status = preg_replace('/^.*(_\d+)$/', 'custom$1', $this->col_claim_status);
 
-    $this->activity_type_declaration= (int) civicrm_api3('OptionValue', 'getvalue',
-      ['return' => "value", 'option_group_id' => "activity_type", 'name' => "ar_giftaid_declaration"]);
+    $this->activity_type_declaration = (int) civicrm_api3(
+      'OptionValue',
+      'getvalue',
+      ['return' => "value", 'option_group_id' => "activity_type", 'name' => "ar_giftaid_declaration"]
+    );
 
-    $this->col_claimcode = civicrm_api3('CustomField', 'getvalue',
-      ['return' => "column_name", 'name' => "ar_giftaid_contribution_claimcode"]);
+    $this->col_claimcode = civicrm_api3(
+      'CustomField',
+      'getvalue',
+      ['return' => "column_name", 'name' => "ar_giftaid_contribution_claimcode"]
+    );
     $this->api_claimcode = preg_replace('/^.*(_\d+)$/', 'custom$1', $this->col_claimcode);
 
-    $this->col_integrity = civicrm_api3('CustomField', 'getvalue',
-      ['return' => "column_name", 'name' => "ar_giftaid_contribution_integrity"]);
+    $this->col_integrity = civicrm_api3(
+      'CustomField',
+      'getvalue',
+      ['return' => "column_name", 'name' => "ar_giftaid_contribution_integrity"]
+    );
     $this->api_integrity = preg_replace('/^.*(_\d+)$/', 'custom$1', $this->col_integrity);
   }
 
@@ -130,9 +151,16 @@ class CRM_Giftaid {
    */
   public function summariseContributions($contribution_ids) {
 
-    $contributions = array_fill_keys([
-        'unclaimed', 'unclaimed_ok', 'unclaimed_missing_data', 'unclaimed_aggregate',
-        'claimed', 'ineligible', 'unknown', 'no_data',
+    $contributions = array_fill_keys(
+      [
+        'unclaimed',
+        'unclaimed_ok',
+        'unclaimed_missing_data',
+        'unclaimed_aggregate',
+        'claimed',
+        'ineligible',
+        'unknown',
+        'no_data',
       ],
       [
         'contacts' => [],
@@ -157,10 +185,9 @@ class CRM_Giftaid {
           ];
         }
         $majorminor = ($contribution['amount'] > 20) ? 'major' : 'minor';
-          $contributions[$ga_status]['contacts'][$contact_id][$majorminor]['count']++;
-          $contributions[$ga_status]['contacts'][$contact_id][$majorminor]['total'] += $contribution['amount'];
-      }
-      else {
+        $contributions[$ga_status]['contacts'][$contact_id][$majorminor]['count']++;
+        $contributions[$ga_status]['contacts'][$contact_id][$majorminor]['total'] += $contribution['amount'];
+      } else {
         $contributions[$ga_status]['contacts'][$contact_id] = TRUE;
       }
 
@@ -170,15 +197,15 @@ class CRM_Giftaid {
 
       // Keep track of min/max range.
       $date = substr($contribution['receive_date'], 0, 10); // 2016-01-01 == 10 characters.
-      if (!isset($contributions['earliest']) || $contributions['earliest']>$date) {
+      if (!isset($contributions['earliest']) || $contributions['earliest'] > $date) {
         $contributions['earliest'] = $date;
       }
-      if (!isset($contributions['latest']) || $contributions['latest']<$date) {
+      if (!isset($contributions['latest']) || $contributions['latest'] < $date) {
         $contributions['latest'] = $date;
       }
     } // }}}
 
-    if ($contributions['unclaimed']['count']>0) {
+    if ($contributions['unclaimed']['count'] > 0) {
       $contact_data = $this->getContactData(array_keys($contributions['unclaimed']['contacts']));
 
       foreach ($contributions['unclaimed']['contacts'] as $contact_id => $contact_contribs) {
@@ -189,15 +216,14 @@ class CRM_Giftaid {
           $contributions['unclaimed_ok']['contacts'][$contact_id] = TRUE;
           $contributions['unclaimed_ok']['count'] += $contact_contribs['major']['count'] + $contact_contribs['minor']['count'];
           $contributions['unclaimed_ok']['total'] += $contact_contribs['major']['total'] + $contact_contribs['minor']['total'];
-        }
-        else {
+        } else {
           // Some data is missing.
-          if ($contact_contribs['major']['count']>0) {
+          if ($contact_contribs['major']['count'] > 0) {
             $contributions['unclaimed_missing_data']['contacts'][$contact_id] = TRUE;
             $contributions['unclaimed_missing_data']['count'] += $contact_contribs['major']['count'];
             $contributions['unclaimed_missing_data']['total'] += $contact_contribs['major']['total'];
           }
-          if ($contact_contribs['minor']['count']>0) {
+          if ($contact_contribs['minor']['count'] > 0) {
             $contributions['unclaimed_aggregate']['contacts'][$contact_id] = TRUE;
             $contributions['unclaimed_aggregate']['count'] += $contact_contribs['minor']['count'];
             $contributions['unclaimed_aggregate']['total'] += $contact_contribs['minor']['total'];
@@ -222,12 +248,12 @@ class CRM_Giftaid {
     $contactsIDs = array_keys($data['unclaimed_missing_data']['contacts']);
 
     $groupID = \Civi\Api4\Group::create()
-    ->addValue('name', 'giftaid_unclaimed_missing_data' . date('YmdHis'))
-    ->addValue('title', "Unclaimable GiftAid contributions")
-    ->addValue('description', 'These contacts had GiftAid declarations and contribution(s) over £20 that could not be claimed due to missing name/address data. This is a static, temporary group and should be deleted once you are finished.')
-    ->addValue('source', 'giftaid extension')
-    ->addValue('created_id', 'user_contact_id')
-    ->execute()->first()['id'];
+      ->addValue('name', 'giftaid_unclaimed_missing_data' . date('YmdHis'))
+      ->addValue('title', "Unclaimable GiftAid contributions")
+      ->addValue('description', 'These contacts had GiftAid declarations and contribution(s) over £20 that could not be claimed due to missing name/address data. This is a static, temporary group and should be deleted once you are finished.')
+      ->addValue('source', 'giftaid extension')
+      ->addValue('created_id', 'user_contact_id')
+      ->execute()->first()['id'];
 
     CRM_Contact_BAO_GroupContact::addContactsToGroup($contactsIDs, $groupID, 'GiftAid', 'Added');
 
@@ -280,7 +306,7 @@ class CRM_Giftaid {
         )
       ";
 
-    CRM_Core_DAO::executeQuery( $sql, [], true, null, true );
+    CRM_Core_DAO::executeQuery($sql, [], true, null, true);
   }
 
   /**
@@ -312,7 +338,9 @@ class CRM_Giftaid {
 
     // Collect data.
     $contributions = $this->getContributions($contribution_ids, $ga_status_allowed);
-    $contact_ids = array_unique(array_map(function ($_) { return $_['contact_id']; }, $contributions));
+    $contact_ids = array_unique(array_map(function ($_) {
+      return $_['contact_id'];
+    }, $contributions));
     $contact_data = $this->getContactData($contact_ids);
 
     // Split into items and aggregates.
@@ -324,8 +352,7 @@ class CRM_Giftaid {
     $affected = $this->claimContributions($contributions, $claim_code);
     if ($affected) {
       CRM_Core_Session::setStatus("$affected contribution(s) updated with new claim code: $claim_code", 'Gift Aid', 'success');
-    }
-    else {
+    } else {
       // Disabled this as seems confusing. CRM_Core_Session::setStatus("No contributions were modified.", 'Gift Aid', 'info');
     }
 
@@ -340,7 +367,7 @@ class CRM_Giftaid {
 
     $out = fopen('php://output', 'w');
     // Apparently this help Excel understand that it's UTF-8.
-    fputs($out, $bom =( chr(0xEF) . chr(0xBB) . chr(0xBF) ));
+    fputs($out, $bom = (chr(0xEF) . chr(0xBB) . chr(0xBF)));
 
     fputcsv($out, ['Title', 'First Name', 'Last Name', 'Address', 'Postcode', 'Aggregated donations', 'Sponsored Event', 'Donation Date', 'Amount']);
     foreach ($lines as $_) {
@@ -379,12 +406,10 @@ class CRM_Giftaid {
     if (!empty($details['eligibility'])) {
       if (in_array($details['eligibility'], ['Eligible', 'Ineligible'])) {
         $params['subject'] = $details['eligibility'];
-      }
-      else {
+      } else {
         throw new \InvalidArgumentException("eligibility must be either Eligible or Ineligible. '$details[eligibility]' given.");
       }
-    }
-    else {
+    } else {
       $params['subject'] = 'Eligible';
     }
 
@@ -464,7 +489,9 @@ class CRM_Giftaid {
 
     // Get comma separated list of contribution ids, ensuring they're all
     // integers so there can't be any SQL injection.
-    $list = implode(',', array_filter(array_map(function($_) { return (int) $_; }, $contribution_ids)));
+    $list = implode(',', array_filter(array_map(function ($_) {
+      return (int) $_;
+    }, $contribution_ids)));
     if (!$list) {
       throw new \InvalidArgumentException("No contribution Ids to process.");
     }
@@ -508,7 +535,7 @@ class CRM_Giftaid {
    * @param Array $contribution_ids
    * @param NULL|Array statuses allowed.
    */
-  public function getContributions($contribution_ids, $ga_status_allowed=NULL) {
+  public function getContributions($contribution_ids, $ga_status_allowed = NULL) {
 
     $ga = CRM_Giftaid::singleton();
     $contributions_raw = civicrm_api3('Contribution', 'get', [
@@ -519,7 +546,7 @@ class CRM_Giftaid {
 
     $contributions = [];
 
-    foreach ($contributions_raw['values'] as $id=>$_) {
+    foreach ($contributions_raw['values'] as $id => $_) {
       $row = [
         'ga_status' => $_[$ga->api_claim_status] ? $_[$ga->api_claim_status] : 'no_data',
         'id' => $id,
@@ -565,7 +592,7 @@ class CRM_Giftaid {
    * @param array $contribution_ids Array of integers. Only these contributions will be included.
    * @return array
    */
-  public function xxgetHMRCReportData($contribution_ids, $status=NULL) {
+  public function xxgetHMRCReportData($contribution_ids, $status = NULL) {
 
     if (!$contribution_ids) {
       return [];
@@ -623,7 +650,7 @@ class CRM_Giftaid {
     }
 
     // Sort by name because it's useful for humans.
-    uasort($output, function($a, $b) {
+    uasort($output, function ($a, $b) {
       $_ = strcasecmp($a['last_name'], $b['last_name']);
       if ($_ == 0) {
         $_ = strcasecmp($a['first_name'], $b['first_name']);
@@ -647,7 +674,7 @@ class CRM_Giftaid {
     $to_update = [];
     foreach ($contributions as $contribution) {
       if ($contribution['ga_status'] == 'unclaimed') {
-        $to_update []= (int) $contribution['id'];
+        $to_update[] = (int) $contribution['id'];
       }
     }
     if (!$to_update) {
@@ -663,7 +690,7 @@ class CRM_Giftaid {
       WHERE entity_id IN (" . implode(',', $to_update) . ")
         AND $this->col_claim_status = 'unclaimed'";
 
-    $dao = CRM_Core_DAO::executeQuery( $sql, [1 => [$claim_code, 'String']], true, null, true );
+    $dao = CRM_Core_DAO::executeQuery($sql, [1 => [$claim_code, 'String']], true, null, true);
 
     return $dao->N;
   }
@@ -695,7 +722,7 @@ class CRM_Giftaid {
           // Aggregates disallowed by user.
           continue;
         }
-        if ($contribution['amount']>20) {
+        if ($contribution['amount'] > 20) {
           // Only payments <=20 can be included in aggregates.
           continue;
         }
@@ -715,8 +742,7 @@ class CRM_Giftaid {
             'amount' => 0,
           ];
         }
-      }
-      else {
+      } else {
         // We have data for this contact. Aggregate by contact Id.
         $index = str_pad($contact['last_name'], 20) . "$contact[first_name]$contact[id]";
         if (!isset($lines[$index])) {
@@ -763,7 +789,7 @@ class CRM_Giftaid {
     }
 
     // First, trim excess spaces and make it upper case.
-    $value = trim(preg_replace('/ {2,}/',' ',strtoupper($existing)));
+    $value = trim(preg_replace('/ {2,}/', ' ', strtoupper($existing)));
     if (preg_match(static::VALID_UK_POSTCODE_REGEX, $value)) {
       // It's ok.
       return $value;
@@ -771,9 +797,9 @@ class CRM_Giftaid {
 
     // if the user entered multiple spaces, try to match it with every combination.
     $parts = explode(' ', $value);
-    if (count($parts)>2) {
-      for ($i=1;$i<count($parts);$i++) {
-        $try = implode('', array_slice($parts,0,$i)) . ' ' . implode('', array_slice($parts,$i));
+    if (count($parts) > 2) {
+      for ($i = 1; $i < count($parts); $i++) {
+        $try = implode('', array_slice($parts, 0, $i)) . ' ' . implode('', array_slice($parts, $i));
         if (preg_match(static::VALID_UK_POSTCODE_REGEX, $try)) {
           return $try;
         }
@@ -783,8 +809,8 @@ class CRM_Giftaid {
     // Still here. OK try removing ALL spaces.
     $_ = implode('', $parts);
     // Now try inserting a space at every possible place until we have a match.
-    for ($i=1;$i<strlen($_);$i++) {
-      $try = substr($_,0,$i) . ' ' . substr($_,$i);
+    for ($i = 1; $i < strlen($_); $i++) {
+      $try = substr($_, 0, $i) . ' ' . substr($_, $i);
       if (preg_match(static::VALID_UK_POSTCODE_REGEX, $try)) {
         return $try;
       }
@@ -909,8 +935,7 @@ class CRM_Giftaid {
       Civi::log()->warning("giftaid: Found $affected contributions whose receive_date is after the claim date. Copies of the original data from $this->table_eligibility have been made in giftaid_backup_$runat. Fixing these with $sql");
       $dao = CRM_Core_DAO::executeQuery($sql);
       Civi::log()->warning("giftaid: Fixed " . $dao->affectedRows() . " rows");
-    }
-    else {
+    } else {
       CRM_Core_DAO::executeQuery("DROP TABLE giftaid_backup_$runat");
       Civi::log()->info("giftaid: Found 0 contributions whose receive_date is after the claim date. Nice.");
     }
@@ -934,5 +959,4 @@ class CRM_Giftaid {
       Civi::log()->info("giftaid: Added integrity check to $affected rows");
     }
   }
-
 }
