@@ -8,9 +8,9 @@ class CRM_Giftaid {
   public const VALID_UK_POSTCODE_REGEX = '/^(GIR 0AA)|((([A-Z][0-9][0-9]?)|(([A-Z][A-HJ-Y][0-9][0-9]?)|(([A-Z][0-9][A-Z])|([A-Z][A-HJ-Y][0-9]?[A-Z])))) [0-9][A-Z]{2})$/';
 
   /**
-   * @var $singleton
+   * @var CRM_Giftaid
    */
-  protected static $singleton;
+  protected static CRM_Giftaid $singleton;
 
   /**
    * @var int
@@ -125,6 +125,7 @@ class CRM_Giftaid {
   }
 
   // Main tasks.
+
   /**
    * Summarise and check the contributions.
    *
@@ -187,7 +188,8 @@ class CRM_Giftaid {
         $majorminor = ($contribution['amount'] > 20) ? 'major' : 'minor';
         $contributions[$ga_status]['contacts'][$contact_id][$majorminor]['count']++;
         $contributions[$ga_status]['contacts'][$contact_id][$majorminor]['total'] += $contribution['amount'];
-      } else {
+      }
+      else {
         $contributions[$ga_status]['contacts'][$contact_id] = TRUE;
       }
 
@@ -196,7 +198,8 @@ class CRM_Giftaid {
       $contributions[$ga_status]['total'] += $contribution['amount'];
 
       // Keep track of min/max range.
-      $date = substr($contribution['receive_date'], 0, 10); // 2016-01-01 == 10 characters.
+      // 2016-01-01 == 10 characters.
+      $date = substr($contribution['receive_date'], 0, 10);
       if (!isset($contributions['earliest']) || $contributions['earliest'] > $date) {
         $contributions['earliest'] = $date;
       }
@@ -216,7 +219,8 @@ class CRM_Giftaid {
           $contributions['unclaimed_ok']['contacts'][$contact_id] = TRUE;
           $contributions['unclaimed_ok']['count'] += $contact_contribs['major']['count'] + $contact_contribs['minor']['count'];
           $contributions['unclaimed_ok']['total'] += $contact_contribs['major']['total'] + $contact_contribs['minor']['total'];
-        } else {
+        }
+        else {
           // Some data is missing.
           if ($contact_contribs['major']['count'] > 0) {
             $contributions['unclaimed_missing_data']['contacts'][$contact_id] = TRUE;
@@ -306,7 +310,7 @@ class CRM_Giftaid {
         )
       ";
 
-    CRM_Core_DAO::executeQuery($sql, [], true, null, true);
+    CRM_Core_DAO::executeQuery($sql, [], TRUE, NULL, TRUE);
   }
 
   /**
@@ -352,7 +356,8 @@ class CRM_Giftaid {
     $affected = $this->claimContributions($contributions, $claim_code);
     if ($affected) {
       CRM_Core_Session::setStatus("$affected contribution(s) updated with new claim code: $claim_code", 'Gift Aid', 'success');
-    } else {
+    }
+    else {
       // Disabled this as seems confusing. CRM_Core_Session::setStatus("No contributions were modified.", 'Gift Aid', 'info');
     }
 
@@ -374,7 +379,6 @@ class CRM_Giftaid {
       fputcsv($out, $_);
     }
     fclose($out);
-
 
     // The problem with exiting here is that you can't make the page reload. So the user might try to repeat the operation. :-( @todo
     exit;
@@ -406,16 +410,19 @@ class CRM_Giftaid {
     if (!empty($details['eligibility'])) {
       if (in_array($details['eligibility'], ['Eligible', 'Ineligible'])) {
         $params['subject'] = $details['eligibility'];
-      } else {
+      }
+      else {
         throw new \InvalidArgumentException("eligibility must be either Eligible or Ineligible. '$details[eligibility]' given.");
       }
-    } else {
+    }
+    else {
       $params['subject'] = 'Eligible';
     }
 
     $result = civicrm_api3('Activity', 'create', $params);
     return $result;
   }
+
   /**
    * Ensure that the given contribution record has a custom gift aid values record.
    *
@@ -461,6 +468,7 @@ class CRM_Giftaid {
       CRM_Core_Error::debug_log_message("Contribution $contribution_id: Created default row. " . json_encode($result));
     }
   }
+
   /**
    * Creates default records for all contributions that do not have one.
    *
@@ -478,7 +486,9 @@ class CRM_Giftaid {
       )";
     CRM_Core_DAO::executeQuery($sql);
   }
+
   // Internals.
+
   /**
    * Check we have an array of integers, return them comma separated string.
    *
@@ -502,7 +512,7 @@ class CRM_Giftaid {
    * Get Contact data
    * @param array of contact ids.
    * @return array of contact data including 'complete' field which is a
-   * boolean saying that there's enough data to do a claim for this person.
+   *   boolean saying that there's enough data to do a claim for this person.
    */
   public function getContactData($contact_ids) {
 
@@ -527,11 +537,11 @@ class CRM_Giftaid {
    *
    * @param array $contribution_ids Array of integers. Only these contributions will be affected.
    * @return array of arrays with keys:
-   * - contact_id
-   * - id
-   * - ga_status
-   * - receive_date
-   * - amount
+   *   - contact_id
+   *   - id
+   *   - ga_status
+   *   - receive_date
+   *   - amount
    * @param Array $contribution_ids
    * @param NULL|Array statuses allowed.
    */
@@ -686,11 +696,11 @@ class CRM_Giftaid {
       INNER JOIN civicrm_contribution cn ON cn.id = claims.entity_id
       SET $this->col_claim_status = 'claimed',
           $this->col_claimcode = %1,
-          $this->col_integrity = CONCAT_WS('|', cn.id, cn.receive_date, cn.total_amount)
+          $this->col_integrity = CONCAT_WS('|', cn.id, SUBSTRING(cn.receive_date, 1, 16), cn.total_amount)
       WHERE entity_id IN (" . implode(',', $to_update) . ")
         AND $this->col_claim_status = 'unclaimed'";
 
-    $dao = CRM_Core_DAO::executeQuery($sql, [1 => [$claim_code, 'String']], true, null, true);
+    $dao = CRM_Core_DAO::executeQuery($sql, [1 => [$claim_code, 'String']], TRUE, NULL, TRUE);
 
     return $dao->N;
   }
@@ -714,7 +724,8 @@ class CRM_Giftaid {
     $lines = [];
 
     foreach ($contributions as $contribution) {
-      $date = substr($contribution['receive_date'], 0, 10); // Y-m-d
+      // Y-m-d
+      $date = substr($contribution['receive_date'], 0, 10);
       $contact = empty($contact_data[$contribution['contact_id']]) ? [] : $contact_data[$contribution['contact_id']];
       if (empty($contact['complete'])) {
         // Can only include this as an aggregate as we don't have name/address.
@@ -742,7 +753,8 @@ class CRM_Giftaid {
             'amount' => 0,
           ];
         }
-      } else {
+      }
+      else {
         // We have data for this contact. Aggregate by contact Id.
         $index = str_pad($contact['last_name'], 20) . "$contact[first_name]$contact[id]";
         if (!isset($lines[$index])) {
@@ -821,6 +833,7 @@ class CRM_Giftaid {
   }
 
   // Unused code. remove it.
+
   /**
    * Group array by gift aid status.
    * @param array of arrays that contain a 'ga_status' field.
@@ -854,7 +867,7 @@ class CRM_Giftaid {
             INNER JOIN $this->table_eligibility e ON e.entity_id = cn.id
             WHERE COALESCE($this->col_claimcode, '') <> ''
             AND COALESCE($this->col_claim_status, '') = 'claimed'
-            AND COALESCE($this->col_integrity, '') != CONCAT_WS('|', cn.id, cn.receive_date, cn.total_amount)
+            AND COALESCE($this->col_integrity, '') != CONCAT_WS('|', cn.id, SUBSTRING(cn.receive_date, 1, 16), cn.total_amount)
     ";
     if ($contributionID) {
       $sql .= " AND cn.id = $contributionID";
@@ -935,7 +948,8 @@ class CRM_Giftaid {
       Civi::log()->warning("giftaid: Found $affected contributions whose receive_date is after the claim date. Copies of the original data from $this->table_eligibility have been made in giftaid_backup_$runat. Fixing these with $sql");
       $dao = CRM_Core_DAO::executeQuery($sql);
       Civi::log()->warning("giftaid: Fixed " . $dao->affectedRows() . " rows");
-    } else {
+    }
+    else {
       CRM_Core_DAO::executeQuery("DROP TABLE giftaid_backup_$runat");
       Civi::log()->info("giftaid: Found 0 contributions whose receive_date is after the claim date. Nice.");
     }
@@ -949,7 +963,7 @@ class CRM_Giftaid {
     $sql = <<<SQL
       UPDATE $this->table_eligibility claims
       INNER JOIN civicrm_contribution cn ON cn.id = claims.entity_id
-      SET claims.$this->col_integrity = CONCAT_WS('|', cn.id, cn.receive_date, cn.total_amount)
+      SET claims.$this->col_integrity = CONCAT_WS('|', cn.id, SUBSTRING(cn.receive_date, 1, 16), cn.total_amount)
       WHERE COALESCE(claims.$this->col_integrity, '') = ''
       AND claims.$this->col_claim_status = 'claimed'
       SQL;
@@ -959,4 +973,5 @@ class CRM_Giftaid {
       Civi::log()->info("giftaid: Added integrity check to $affected rows");
     }
   }
+
 }
