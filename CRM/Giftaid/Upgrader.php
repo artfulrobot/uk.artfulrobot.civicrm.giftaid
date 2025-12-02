@@ -202,7 +202,7 @@ class CRM_Giftaid_Upgrader extends CRM_Extension_Upgrader_Base {
       FROM $ga->table_eligibility claims
       INNER JOIN civicrm_contribution cn ON cn.id = claims.entity_id
       WHERE claims.$ga->col_integrity IS NOT NULL
-        AND claims.$ga->col_integrity REGEXP '^[0-9]+[|][0-9-]{10} [0-9][0-9]:[0-9][0-9]:[0-9][|][0-9.]+$'
+        AND claims.$ga->col_integrity REGEXP '^[0-9]+[|][0-9-]{10} [0-9][0-9]:[0-9][0-9]:[0-9][0-9][|][0-9.]+$'
       ORDER BY cn.contact_id, receive_date
       SQL)->execute();
     $affected = CRM_Core_DAO::singleValueQuery("SELECT COUNT(*) FROM giftaid_backup_$runat");
@@ -215,7 +215,7 @@ class CRM_Giftaid_Upgrader extends CRM_Extension_Upgrader_Base {
         SET $ga->col_integrity = REGEXP_REPLACE($ga->col_integrity,
         '([0-9]+\|)(.{17})...(\|.*)$',
         '\\\\1\\\\2\\\\3')
-        WHERE $ga->col_integrity REGEXP '^[0-9]+[|][0-9-]{10} [0-9][0-9]:[0-9][0-9]:[0-9][|][0-9.]+$'
+        WHERE $ga->col_integrity REGEXP '^[0-9]+[|][0-9-]{10} [0-9][0-9]:[0-9][0-9]:[0-9][0-9][|][0-9.]+$'
       SQL)->execute();
     }
     else {
