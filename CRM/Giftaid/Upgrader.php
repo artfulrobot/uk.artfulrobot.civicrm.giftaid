@@ -11,11 +11,11 @@ class CRM_Giftaid_Upgrader extends CRM_Extension_Upgrader_Base {
   /**
    * Example: Run an external SQL script when the module is installed.
    *
-  public function install() {
-    $this->executeSqlFile('sql/myinstall.sql');
-  }
-
-  /**
+   * public function install() {
+   * $this->executeSqlFile('sql/myinstall.sql');
+   * }
+   *
+   * /**
    * Set all contribs to 'unknown' eligibility.
    *
    * Work with entities usually not available during the install step.
@@ -55,7 +55,7 @@ class CRM_Giftaid_Upgrader extends CRM_Extension_Upgrader_Base {
       'option_group_id' => "activity_type",
       'name' => "ar_giftaid_declaration",
     ],
-      [ 'label' => 'Gift Aid Declaration']);
+      ['label' => 'Gift Aid Declaration']);
 
     // Ensure we have the custom field group we need for contributions.
     $contribution_custom_group = $api_get_or_create('CustomGroup', [
@@ -78,8 +78,8 @@ class CRM_Giftaid_Upgrader extends CRM_Extension_Upgrader_Base {
       "claimed"    => "Eligible and has been claimed",
     ] as $name => $label) {
       $api_get_or_create('OptionValue',
-        [ 'option_group_id' => "ar_giftaid_contribution_eligibility_opts", 'name' => $name, ],
-        [ 'label' => $label, 'value' => $name, 'weight' => $weight++ ]);
+        ['option_group_id' => "ar_giftaid_contribution_eligibility_opts", 'name' => $name],
+        ['label' => $label, 'value' => $name, 'weight' => $weight++]);
     }
 
     // ... Now we can add the Eligibility field to the custom group for contributions.
@@ -131,25 +131,25 @@ class CRM_Giftaid_Upgrader extends CRM_Extension_Upgrader_Base {
   /**
    * Example: Run an external SQL script when the module is uninstalled.
    *
-  public function uninstall() {
-   $this->executeSqlFile('sql/myuninstall.sql');
-  }
-
-  /**
+   * public function uninstall() {
+   * $this->executeSqlFile('sql/myuninstall.sql');
+   * }
+   *
+   * /**
    * Example: Run a simple query when a module is enabled.
    *
-  public function enable() {
-    CRM_Core_DAO::executeQuery('UPDATE foo SET is_active = 1 WHERE bar = "whiz"');
-  }
-
-  /**
+   * public function enable() {
+   * CRM_Core_DAO::executeQuery('UPDATE foo SET is_active = 1 WHERE bar = "whiz"');
+   * }
+   *
+   * /**
    * Example: Run a simple query when a module is disabled.
    *
-  public function disable() {
-    CRM_Core_DAO::executeQuery('UPDATE foo SET is_active = 0 WHERE bar = "whiz"');
-  }
-
-  /**
+   * public function disable() {
+   * CRM_Core_DAO::executeQuery('UPDATE foo SET is_active = 0 WHERE bar = "whiz"');
+   * }
+   *
+   * /**
    * This is now included in the postInstall hook.
    *
    * @return TRUE on success
@@ -185,17 +185,56 @@ class CRM_Giftaid_Upgrader extends CRM_Extension_Upgrader_Base {
     return TRUE;
   }
 
+  public function upgrade_6000() {
+    $this->ctx->log->info('Applying update 6000');
+    $this->ensureFieldsEtc();
+    $ga = CRM_Giftaid::singleton();
+
+    $runat = date('YmdHis');
+    // This is a one-off operation.
+    CRM_Core_DAO::executeQuery(<<<SQL
+      CREATE TABLE IF NOT EXISTS giftaid_backup_$runat
+      SELECT cn.id, cn.contact_id, cn.receive_date, cn.total_amount,
+        claims.id claim_id,
+        claims.$ga->col_claimcode claim_claimcode,
+        claims.$ga->col_claim_status claim_status,
+        claims.$ga->col_integrity claim_integrity
+      FROM $ga->table_eligibility claims
+      INNER JOIN civicrm_contribution cn ON cn.id = claims.entity_id
+      WHERE claims.$ga->col_integrity IS NOT NULL
+        AND claims.$ga->col_integrity REGEXP '^[0-9]+[|][0-9-]{10} [0-9][0-9]:[0-9][0-9]:[0-9][|][0-9.]+$'
+      ORDER BY cn.contact_id, receive_date
+      SQL)->execute();
+    $affected = CRM_Core_DAO::singleValueQuery("SELECT COUNT(*) FROM giftaid_backup_$runat");
+
+    if ($affected) {
+      $this->ctx->log->info("Dropping seconds from the integrity codes. $affected affected rows are backed up in giftaid_backup_$runat");
+
+      CRM_Core_DAO::executeQuery(<<<SQL
+        UPDATE $ga->table_eligibility
+        SET $ga->col_integrity = REGEXP_REPLACE($ga->col_integrity,
+        '([0-9]+\|)(.{17})...(\|.*)$',
+        '\\\\1\\\\2\\\\3')
+        WHERE $ga->col_integrity REGEXP '^[0-9]+[|][0-9-]{10} [0-9][0-9]:[0-9][0-9]:[0-9][|][0-9.]+$'
+      SQL)->execute();
+    }
+    else {
+      $this->ctx->log->info('Nothing to do.');
+    }
+    return TRUE;
+  }
+
   /**
    * Example: Run an external SQL script.
    *
    * @return TRUE on success
    * @throws Exception
-  public function upgrade_4201() {
-    $this->ctx->log->info('Applying update 4201');
-    // this path is relative to the extension base dir
-    $this->executeSqlFile('sql/upgrade_4201.sql');
-    return TRUE;
-  } // */
+   * public function upgrade_4201() {
+ * $this->ctx->log->info('Applying update 4201');
+ * // this path is relative to the extension base dir
+ * $this->executeSqlFile('sql/upgrade_4201.sql');
+ * return TRUE;
+ * } // */
 
 
   /**
@@ -203,18 +242,18 @@ class CRM_Giftaid_Upgrader extends CRM_Extension_Upgrader_Base {
    *
    * @return TRUE on success
    * @throws Exception
-  public function upgrade_4202() {
-    $this->ctx->log->info('Planning update 4202'); // PEAR Log interface
-
-    $this->addTask(ts('Process first step'), 'processPart1', $arg1, $arg2);
-    $this->addTask(ts('Process second step'), 'processPart2', $arg3, $arg4);
-    $this->addTask(ts('Process second step'), 'processPart3', $arg5);
-    return TRUE;
-  }
-  public function processPart1($arg1, $arg2) { sleep(10); return TRUE; }
-  public function processPart2($arg3, $arg4) { sleep(10); return TRUE; }
-  public function processPart3($arg5) { sleep(10); return TRUE; }
-  // */
+   * public function upgrade_4202() {
+ * $this->ctx->log->info('Planning update 4202'); // PEAR Log interface
+ *
+ * $this->addTask(ts('Process first step'), 'processPart1', $arg1, $arg2);
+ * $this->addTask(ts('Process second step'), 'processPart2', $arg3, $arg4);
+ * $this->addTask(ts('Process second step'), 'processPart3', $arg5);
+ * return TRUE;
+ * }
+ * public function processPart1($arg1, $arg2) { sleep(10); return TRUE; }
+ * public function processPart2($arg3, $arg4) { sleep(10); return TRUE; }
+ * public function processPart3($arg5) { sleep(10); return TRUE; }
+ * // */
 
 
   /**
@@ -223,28 +262,28 @@ class CRM_Giftaid_Upgrader extends CRM_Extension_Upgrader_Base {
    *
    * @return TRUE on success
    * @throws Exception
-  public function upgrade_4203() {
-    $this->ctx->log->info('Planning update 4203'); // PEAR Log interface
-
-    $minId = CRM_Core_DAO::singleValueQuery('SELECT coalesce(min(id),0) FROM civicrm_contribution');
-    $maxId = CRM_Core_DAO::singleValueQuery('SELECT coalesce(max(id),0) FROM civicrm_contribution');
-    for ($startId = $minId; $startId <= $maxId; $startId += self::BATCH_SIZE) {
-      $endId = $startId + self::BATCH_SIZE - 1;
-      $title = ts('Upgrade Batch (%1 => %2)', array(
-        1 => $startId,
-        2 => $endId,
-      ));
-      $sql = '
-        UPDATE civicrm_contribution SET foobar = whiz(wonky()+wanker)
-        WHERE id BETWEEN %1 and %2
-      ';
-      $params = array(
-        1 => array($startId, 'Integer'),
-        2 => array($endId, 'Integer'),
-      );
-      $this->addTask($title, 'executeSql', $sql, $params);
-    }
-    return TRUE;
-  } // */
+   * public function upgrade_4203() {
+ * $this->ctx->log->info('Planning update 4203'); // PEAR Log interface
+ *
+ * $minId = CRM_Core_DAO::singleValueQuery('SELECT coalesce(min(id),0) FROM civicrm_contribution');
+ * $maxId = CRM_Core_DAO::singleValueQuery('SELECT coalesce(max(id),0) FROM civicrm_contribution');
+ * for ($startId = $minId; $startId <= $maxId; $startId += self::BATCH_SIZE) {
+ * $endId = $startId + self::BATCH_SIZE - 1;
+ * $title = ts('Upgrade Batch (%1 => %2)', array(
+ * 1 => $startId,
+ * 2 => $endId,
+ * ));
+ * $sql = '
+ * UPDATE civicrm_contribution SET foobar = whiz(wonky()+wanker)
+ * WHERE id BETWEEN %1 and %2
+ * ';
+ * $params = array(
+ * 1 => array($startId, 'Integer'),
+ * 2 => array($endId, 'Integer'),
+ * );
+ * $this->addTask($title, 'executeSql', $sql, $params);
+ * }
+ * return TRUE;
+ * } // */
 
 }

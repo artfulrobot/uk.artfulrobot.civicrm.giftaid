@@ -828,7 +828,7 @@ class CRM_GiftaidTest extends \PHPUnit\Framework\TestCase implements HeadlessInt
       INNER JOIN civicrm_contribution cn ON cn.id = claims.entity_id
       SET $ga->col_claim_status = 'claimed',
           $ga->col_claimcode = %1,
-          $ga->col_integrity = CONCAT_WS('|', cn.id, cn.receive_date, cn.total_amount)
+          $ga->col_integrity = CONCAT_WS('|', cn.id, SUBSTRING(cn.receive_date, 1, 16), cn.total_amount)
       WHERE entity_id = $contrib[id]
       SQL;
     CRM_Core_DAO::executeQuery( $sql, [1 => [$claimCode, 'String']], true, null, true );
